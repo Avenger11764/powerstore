@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Store Game Manual</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Use Inter as the default font */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d0221; /* Deep indigo background */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Custom styles for better visual hierarchy */
+        .card-grid {
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+        /* Smooth color transitions */
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        /* Neon Glow Effect for Text */
+        .text-glow-cyan {
+            color: #2dd4bf;
+            text-shadow: 0 0 5px #2dd4bf, 0 0 10px #2dd4bf, 0 0 20px #2dd4bf;
+        }
+        .text-glow-fuchsia {
+            color: #f5d0fe;
+            text-shadow: 0 0 5px #d946ef, 0 0 10px #d946ef;
+        }
+        /* Neon Glow Effect for Borders/Shadows */
+        .shadow-glow-cyan {
+            box-shadow: 0 0 15px rgba(45, 212, 191, 0.3);
+        }
+        .shadow-glow-fuchsia {
+             box-shadow: 0 0 25px rgba(217, 70, 239, 0.4);
+        }
+    </style>
+</head>
+<body class="text-slate-300">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl relative">
+        
+        <!-- Header Section -->
+        <header class="text-center mb-16 pt-8">
+            <h1 class="text-5xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-lime-400">Power Store Bot</h1>
+            <p class="mt-4 text-lg text-fuchsia-300">The Ultimate Player Manual</p>
+        </header>
+
+        <main class="space-y-12">
+
+            <!-- Getting Started Section -->
+            <section id="getting-started" class="bg-black/20 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-glow-cyan ring-1 ring-cyan-400/30">
+                <h2 class="text-2xl font-bold text-white border-b border-cyan-400/30 pb-3 mb-4 flex items-center">
+                    <span class="text-3xl mr-3">🚀</span> Getting Started
+                </h2>
+                <p class="text-slate-400 mb-4">
+                    Welcome to the Power Store Tournament! The goal is to strategically use Power Cards to outwit your opponents. You start with 50 Power Coins (PC). Use them wisely to buy cards from the store and gain an advantage.
+                </p>
+                <div>
+                    <p class="font-semibold text-slate-300">To begin, use this command in the group chat:</p>
+                    <code class="block bg-black/50 text-teal-300 p-3 rounded-md mt-2 text-sm font-mono border border-teal-500/30">/start</code>
+                    <p class="text-sm text-slate-500 mt-1">This will register you in the game and grant your starting coins.</p>
+                </div>
+            </section>
+
+            <!-- Core Commands Section -->
+            <section id="commands" class="bg-black/20 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-glow-cyan ring-1 ring-cyan-400/30">
+                <h2 class="text-2xl font-bold text-white border-b border-cyan-400/30 pb-3 mb-4 flex items-center">
+                     <span class="text-3xl mr-3">🤖</span> Core Commands
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <code class="text-sm font-bold text-fuchsia-400 font-mono">/profile</code>
+                        <p class="text-slate-400 ml-4 border-l-2 border-fuchsia-500/50 pl-4 mt-1">Check your coin balance, card inventory, and any active status effects.</p>
+                    </div>
+                    <div>
+                        <code class="text-sm font-bold text-fuchsia-400 font-mono">/store</code>
+                        <p class="text-slate-400 ml-4 border-l-2 border-fuchsia-500/50 pl-4 mt-1">Opens an interactive menu to browse and buy Power Cards.</p>
+                    </div>
+                    <div>
+                        <code class="text-sm font-bold text-fuchsia-400 font-mono">/help</code>
+                        <p class="text-slate-400 ml-4 border-l-2 border-fuchsia-500/50 pl-4 mt-1">Displays a short list of commands in the chat.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- How to Use Cards Section -->
+            <section id="usage" class="bg-black/20 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-glow-cyan ring-1 ring-cyan-400/30">
+                <h2 class="text-2xl font-bold text-white border-b border-cyan-400/30 pb-3 mb-4 flex items-center">
+                     <span class="text-3xl mr-3">🃏</span> How to Use Cards
+                </h2>
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="font-semibold text-slate-200">1. Targeting Another Player</h3>
+                        <p class="text-slate-400 my-2">For cards that require a target (like 🔥 Flame), you must <strong class="text-slate-100 text-glow-fuchsia">reply</strong> to a message from that player in the group chat and then type the command.</p>
+                        <code class="block bg-black/50 text-teal-300 p-3 rounded-md mt-2 text-sm font-mono border border-teal-500/30">/use Flame</code>
+                    </div>
+                     <div>
+                        <h3 class="font-semibold text-slate-200">2. Using Cards on Yourself</h3>
+                        <p class="text-slate-400 my-2">For cards that affect you (like 🛡️ Forcefield), simply type the command without replying to anyone.</p>
+                        <code class="block bg-black/50 text-teal-300 p-3 rounded-md mt-2 text-sm font-mono border border-teal-500/30">/use Forcefield</code>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-200">3. Special Case: The God Card</h3>
+                        <p class="text-slate-400 my-2">The God card is unique. You must specify the power and the target's username directly in the command.</p>
+                        <code class="block bg-black/50 text-teal-300 p-3 rounded-md mt-2 text-sm font-mono border border-teal-500/30">/use God Smite @username</code>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Card Reference Section -->
+            <section id="card-reference">
+                <h2 class="text-4xl font-bold text-white text-center mb-8 flex items-center justify-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">
+                     <span class="text-4xl mr-4 text-white">🎴</span> Power Card Reference
+                </h2>
+                <div id="card-container" class="grid gap-6 card-grid">
+                    <!-- Cards will be dynamically inserted here -->
+                </div>
+            </section>
+            
+            <!-- Status Effects Section -->
+            <section id="status-effects" class="bg-black/20 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-glow-cyan ring-1 ring-cyan-400/30">
+                <h2 class="text-2xl font-bold text-white border-b border-cyan-400/30 pb-3 mb-6 flex items-center">
+                     <span class="text-3xl mr-3">✨</span> Status Effects Explained
+                </h2>
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <span class="text-xl mr-3 mt-1">🛡️</span>
+                        <div>
+                            <h3 class="font-semibold text-slate-200">Protected</h3>
+                            <p class="text-slate-400">Blocks the next single negative card used against you. Consumed after use.</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-xl mr-3 mt-1">⚖️</span>
+                        <div>
+                            <h3 class="font-semibold text-slate-200">Karma Active</h3>
+                            <p class="text-slate-400">For 4 hours, any negative card used on you is reflected back to the sender.</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-xl mr-3 mt-1">🕶️</span>
+                        <div>
+                            <h3 class="font-semibold text-slate-200">Blackout Active</h3>
+                            <p class="text-slate-400">For 4 hours, you are immune to being seen by Vision and Spotlight cards.</p>
+                        </div>
+                    </li>
+                     <li class="flex items-start">
+                        <span class="text-xl mr-3 mt-1">🏜️</span>
+                        <div>
+                            <h3 class="font-semibold text-slate-200">Mirage Active</h3>
+                            <p class="text-slate-400">For 1 hour, anyone using Vision or Spotlight on you will be shown a fake hand.</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-xl mr-3 mt-1">💰</span>
+                        <div>
+                            <h3 class="font-semibold text-slate-200">In the Black Market</h3>
+                            <p class="text-slate-400">For 1 hour, all cards in the store are 50% off for you.</p>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-xl mr-3 mt-1">📈</span>
+                        <div>
+                            <h3 class="font-semibold text-slate-200">Affected by Inflation</h3>
+                            <p class="text-slate-400">For 1 hour, all cards in the store are double the price for everyone except the user who played the card.</p>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="text-center mt-12 py-6 border-t border-cyan-400/20">
+            <p class="text-sm text-slate-500">Power Store Bot | Have Fun!</p>
+        </footer>
+
+    </div>
+
+    <script>
+        // This object contains all the card definitions, mirroring the Python bot's data.
+        const POWER_CARDS = {
+            'speed': {'name': 'Speed', 'description': 'Instantly gain 20 Power Coins. A quick boost to get you ahead!', 'price': 15, 'icon': '⚡️', 'tier': 1},
+            'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1},
+            'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'tier': 1},
+            'blackout': {'name': 'Blackout', 'description': 'For 4 hours, you are immune to Vision and Spotlight cards.', 'price': 15, 'icon': '🕶️', 'tier': 1},
+            'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1},
+            'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 10, 'icon': '💰', 'tier': 1},
+            'flame': {'name': 'Flame', 'description': 'Burn 10 Power Coins from a target player.', 'price': 25, 'icon': '🔥', 'tier': 2},
+            'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 30, 'icon': '🌀', 'tier': 2},
+            'spotlight': {'name': 'Spotlight', 'description': "Publicly reveal a target player's entire card inventory to the group.", 'price': 25, 'icon': '💡', 'tier': 2},
+            'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma effect on a target player.', 'price': 25, 'icon': '⏳', 'tier': 2},
+            'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'tier': 2},
+            'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 35, 'icon': '🛡️', 'tier': 3},
+            'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 40, 'icon': '😈', 'tier': 3},
+            'karma': {'name': 'Karma', 'description': 'For 4 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3},
+            'swap': {'name': 'Swap', 'description': "Swap a random card from your hand with a random card from a target's hand.", 'price': 35, 'icon': '🔄', 'tier': 3},
+            'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 40, 'icon': '📈', 'tier': 3},
+            'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 60, 'icon': '�', 'tier': 4},
+        };
+
+        /**
+         * This function runs when the page loads. It dynamically creates and inserts
+         * the HTML for each power card into the grid.
+         */
+        window.onload = function() {
+            const cardContainer = document.getElementById('card-container');
+            if (!cardContainer) return;
+            
+            // Sort cards by tier, then by name for a consistent order
+            const sortedCardIds = Object.keys(POWER_CARDS).sort((a, b) => {
+                const cardA = POWER_CARDS[a];
+                const cardB = POWER_CARDS[b];
+                if (cardA.tier < cardB.tier) return -1;
+                if (cardA.tier > cardB.tier) return 1;
+                return cardA.name.localeCompare(cardB.name);
+            });
+
+            sortedCardIds.forEach(cardId => {
+                const card = POWER_CARDS[cardId];
+                const tierStyles = {
+                    1: { border: 'border-cyan-400', shadow: 'shadow-glow-cyan' },
+                    2: { border: 'border-lime-400', shadow: 'shadow-lime-500/30' },
+                    3: { border: 'border-yellow-400', shadow: 'shadow-yellow-500/30' },
+                    4: { border: 'border-fuchsia-500', shadow: 'shadow-glow-fuchsia' }
+                };
+                const style = tierStyles[card.tier] || { border: 'border-slate-600', shadow: '' };
+                
+                const cardElement = document.createElement('div');
+                cardElement.className = `bg-black/20 backdrop-blur-sm rounded-xl ring-1 ring-white/10 flex flex-col border-t-4 ${style.border} hover:shadow-lg hover:${style.shadow} transition-shadow duration-300`;
+                
+                cardElement.innerHTML = `
+                    <div class="p-6 flex-grow">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-semibold text-white flex items-center">
+                                <span class="text-2xl mr-3">${card.icon}</span>
+                                ${card.name}
+                            </h3>
+                        </div>
+                        <p class="text-slate-400 text-sm leading-relaxed">${card.description}</p>
+                    </div>
+                    <div class="bg-black/30 px-6 py-3 rounded-b-xl border-t border-white/10">
+                        <p class="text-sm font-semibold text-cyan-300 text-right">
+                            Cost: ${card.price} PC
+                        </p>
+                    </div>
+                `;
+                cardContainer.appendChild(cardElement);
+            });
+        };
+    </script>
+</body>
+</html>
