@@ -91,6 +91,31 @@
                     </div>
                 </div>
             </section>
+            
+            <!-- Gameplay Rules Section -->
+            <section id="rules" class="bg-black/20 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-glow-fuchsia ring-1 ring-fuchsia-400/30">
+                <h2 class="text-2xl font-bold text-white border-b border-fuchsia-400/30 pb-3 mb-4 flex items-center">
+                    <span class="text-3xl mr-3">📜</span> Gameplay Rules
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="font-semibold text-slate-200">Card Cooldown</h3>
+                        <p class="text-slate-400">There is a <strong class="text-slate-100">15-minute cooldown</strong> between using cards. The ⚡️ Speed card can cut this in half, and the 🔀 Frenzy card lets you bypass it for two uses.</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-200">Card Uniqueness</h3>
+                        <p class="text-slate-400">You can only hold <strong class="text-slate-100">one of each type</strong> of card at a time. Use your card before buying another of the same kind!</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-200">Private Start & Purchases</h3>
+                        <p class="text-slate-400">To join the game and buy cards, you must interact with the bot in a <strong class="text-slate-100">private message (DM)</strong>. Send <code class="text-fuchsia-400 text-xs">/start</code> and use <code class="text-fuchsia-400 text-xs">/store</code> in your DM to keep your inventory secret.</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-slate-200">Public Card Use & Penalties</h3>
+                        <p class="text-slate-400">Power cards must <strong class="text-slate-100">only be used in the main group chat</strong>. Using a card in a private DM will result in a <strong class="text-red-400">100 Power Coin penalty</strong> from the admin.</p>
+                    </div>
+                </div>
+            </section>
 
             <!-- How to Use Cards Section -->
             <section id="usage" class="bg-black/20 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-glow-cyan ring-1 ring-cyan-400/30">
@@ -109,16 +134,16 @@
                         <code class="block bg-black/50 text-teal-300 p-3 rounded-md mt-2 text-sm font-mono border border-teal-500/30">/use Forcefield</code>
                     </div>
                     <div>
-                        <h3 class="font-semibold text-slate-200">3. Special Case: The God Card</h3>
-                        <p class="text-slate-400 my-2">The God card is unique. You must specify the power and the target's username directly in the command.</p>
-                        <code class="block bg-black/50 text-teal-300 p-3 rounded-md mt-2 text-sm font-mono border border-teal-500/30">/use God Smite @username</code>
+                        <h3 class="font-semibold text-slate-200">3. Cards with Arguments</h3>
+                        <p class="text-slate-400 my-2">Some cards, like 🎯 Purge, require an extra argument. Provide the name of the card you want to target.</p>
+                        <code class="block bg-black/50 text-teal-300 p-3 rounded-md mt-2 text-sm font-mono border border-teal-500/30">/use Purge Forcefield</code>
                     </div>
                 </div>
             </section>
 
             <!-- Card Reference Section -->
             <section id="card-reference">
-                <h2 class="text-4xl font-bold text-white text-center mb-8 flex items-center justify-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">
+                <h2 class="text-4xl font-bold text-center mb-8 flex items-center justify-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">
                      <span class="text-4xl mr-4 text-white">🎴</span> Power Card Reference
                 </h2>
                 <div id="card-container" class="grid gap-6 card-grid">
@@ -132,48 +157,16 @@
                      <span class="text-3xl mr-3">✨</span> Status Effects Explained
                 </h2>
                 <ul class="space-y-4">
-                    <li class="flex items-start">
-                        <span class="text-xl mr-3 mt-1">🛡️</span>
-                        <div>
-                            <h3 class="font-semibold text-slate-200">Protected</h3>
-                            <p class="text-slate-400">Blocks the next single negative card used against you. Consumed after use.</p>
-                        </div>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-xl mr-3 mt-1">⚖️</span>
-                        <div>
-                            <h3 class="font-semibold text-slate-200">Karma Active</h3>
-                            <p class="text-slate-400">For 4 hours, any negative card used on you is reflected back to the sender.</p>
-                        </div>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-xl mr-3 mt-1">🕶️</span>
-                        <div>
-                            <h3 class="font-semibold text-slate-200">Blackout Active</h3>
-                            <p class="text-slate-400">For 4 hours, you are immune to being seen by Vision and Spotlight cards.</p>
-                        </div>
-                    </li>
-                     <li class="flex items-start">
-                        <span class="text-xl mr-3 mt-1">🏜️</span>
-                        <div>
-                            <h3 class="font-semibold text-slate-200">Mirage Active</h3>
-                            <p class="text-slate-400">For 1 hour, anyone using Vision or Spotlight on you will be shown a fake hand.</p>
-                        </div>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-xl mr-3 mt-1">💰</span>
-                        <div>
-                            <h3 class="font-semibold text-slate-200">In the Black Market</h3>
-                            <p class="text-slate-400">For 1 hour, all cards in the store are 50% off for you.</p>
-                        </div>
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-xl mr-3 mt-1">📈</span>
-                        <div>
-                            <h3 class="font-semibold text-slate-200">Affected by Inflation</h3>
-                            <p class="text-slate-400">For 1 hour, all cards in the store are double the price for everyone except the user who played the card.</p>
-                        </div>
-                    </li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🛡️</span><div><h3 class="font-semibold text-slate-200">Protected</h3><p class="text-slate-400">Blocks the next single negative card used against you. Consumed after use.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🪤</span><div><h3 class="font-semibold text-slate-200">Trap Active</h3><p class="text-slate-400">The next negative card used on you is nullified, and the attacker loses 15 coins. Consumed after use.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">⚖️</span><div><h3 class="font-semibold text-slate-200">Karma Active</h3><p class="text-slate-400">For 12 hours, any negative card used on you is reflected back to the sender.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">⛓️</span><div><h3 class="font-semibold text-slate-200">Shackled</h3><p class="text-slate-400">You are unable to use any cards for 1 hour.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🕶️</span><div><h3 class="font-semibold text-slate-200">Blackout Active</h3><p class="text-slate-400">For 4 hours, you are immune to Vision and Spotlight cards.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🏜️</span><div><h3 class="font-semibold text-slate-200">Mirage Active</h3><p class="text-slate-400">For 1 hour, anyone using Vision or Spotlight on you will be shown a fake hand.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">⚡️</span><div><h3 class="font-semibold text-slate-200">Speed Active</h3><p class="text-slate-400">Your card cooldown is halved for 1 hour.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🔀</span><div><h3 class="font-semibold text-slate-200">Frenzy Active</h3><p class="text-slate-400">Your next two card uses have no cooldown.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">💰</span><div><h3 class="font-semibold text-slate-200">In the Black Market</h3><p class="text-slate-400">For 1 hour, all cards in the store are 50% off for you.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">📈</span><div><h3 class="font-semibold text-slate-200">Affected by Inflation</h3><p class="text-slate-400">For 1 hour, all cards in the store are double the price for everyone except the user who played the card.</p></div></li>
                 </ul>
             </section>
         </main>
@@ -188,23 +181,34 @@
     <script>
         // This object contains all the card definitions, mirroring the Python bot's data.
         const POWER_CARDS = {
-            'speed': {'name': 'Speed', 'description': 'Instantly gain 20 Power Coins. A quick boost to get you ahead!', 'price': 15, 'icon': '⚡️', 'tier': 1},
+            // Tier 1
+            'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time between usage of 2 cards by half for the next 1 hour for the player who uses this card.', 'price': 30, 'icon': '⚡️', 'tier': 1},
             'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1},
             'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'tier': 1},
             'blackout': {'name': 'Blackout', 'description': 'For 4 hours, you are immune to Vision and Spotlight cards.', 'price': 15, 'icon': '🕶️', 'tier': 1},
             'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1},
             'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 10, 'icon': '💰', 'tier': 1},
+            // Tier 2
             'flame': {'name': 'Flame', 'description': 'Burn 10 Power Coins from a target player.', 'price': 25, 'icon': '🔥', 'tier': 2},
             'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 30, 'icon': '🌀', 'tier': 2},
+            'shackle': {'name': 'Shackle', 'description': 'For 1 hour, your target is unable to use any cards.', 'price': 30, 'icon': '⛓️', 'tier': 2},
             'spotlight': {'name': 'Spotlight', 'description': "Publicly reveal a target player's entire card inventory to the group.", 'price': 25, 'icon': '💡', 'tier': 2},
-            'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma effect on a target player.', 'price': 25, 'icon': '⏳', 'tier': 2},
+            'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'tier': 2},
             'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'tier': 2},
+            // Tier 3
             'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 35, 'icon': '🛡️', 'tier': 3},
+            'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 35, 'icon': '🪤', 'tier': 3},
+            'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. This card allows the user to bypass disguise effects and view the actual cards of the target in the bot\'s DM. Users under Blackout will remain unaffected.', 'price': 35, 'icon': '🔮', 'tier': 3},
             'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 40, 'icon': '😈', 'tier': 3},
-            'karma': {'name': 'Karma', 'description': 'For 4 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3},
+            'karma': {'name': 'Karma', 'description': 'For 12 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3},
             'swap': {'name': 'Swap', 'description': "Swap a random card from your hand with a random card from a target's hand.", 'price': 35, 'icon': '🔄', 'tier': 3},
             'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 40, 'icon': '📈', 'tier': 3},
-            'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 60, 'icon': '�', 'tier': 4},
+            'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 50, 'icon': '🎯', 'tier': 3},
+            'vortex': {'name': 'Vortex', 'description': 'All players in the game (including you) must immediately discard one random card.', 'price': 55, 'icon': '🌪️', 'tier': 3},
+            'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 70, 'icon': '❓', 'tier': 3},
+            'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 40, 'icon': '🔀', 'tier': 3},
+            // Special Tier
+            'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 60, 'icon': '🛐', 'tier': 4},
         };
 
         /**
