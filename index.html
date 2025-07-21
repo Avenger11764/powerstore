@@ -160,9 +160,9 @@
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">🛡️</span><div><h3 class="font-semibold text-slate-200">Protected</h3><p class="text-slate-400">Blocks the next single negative card used against you. Consumed after use.</p></div></li>
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">🪤</span><div><h3 class="font-semibold text-slate-200">Trap Active</h3><p class="text-slate-400">The next negative card used on you is nullified, and the attacker loses 15 coins. Consumed after use.</p></div></li>
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">⚖️</span><div><h3 class="font-semibold text-slate-200">Karma Active</h3><p class="text-slate-400">For 2 hours, any negative card used on you is reflected back to the sender.</p></div></li>
-                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">↪️</span><div><h3 class="font-semibold text-slate-200">Ricochet Active</h3><p class="text-slate-400">The next negative card used on you is redirected to a random player (not the original sender).</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">↪️</span><div><h3 class="font-semibold text-slate-200">Ricochet Active</h3><p class="text-slate-400">For 1 hour, the next negative card used on you is redirected to a random player (not the original sender).</p></div></li>
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">⛓️</span><div><h3 class="font-semibold text-slate-200">Shackled</h3><p class="text-slate-400">You are unable to use any cards for 1 hour.</p></div></li>
-                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🕶️</span><div><h3 class="font-semibold text-slate-200">Blackout Active</h3><p class="text-slate-400">For 4 hours, you are immune to Vision and Spotlight cards.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🕶️</span><div><h3 class="font-semibold text-slate-200">Blackout Active</h3><p class="text-slate-400">For 3 hours, you are immune to Vision and Spotlight cards.</p></div></li>
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">🏜️</span><div><h3 class="font-semibold text-slate-200">Mirage Active</h3><p class="text-slate-400">For 1 hour, anyone using Vision or Spotlight on you will be shown a fake hand.</p></div></li>
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">⚡️</span><div><h3 class="font-semibold text-slate-200">Speed Active</h3><p class="text-slate-400">Your card cooldown is halved for 1 hour.</p></div></li>
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">🔀</span><div><h3 class="font-semibold text-slate-200">Frenzy Active</h3><p class="text-slate-400">Your next two card uses have no cooldown.</p></div></li>
@@ -184,13 +184,13 @@
         const POWER_CARDS = {
             // Tier 1
             'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'tier': 1},
-            'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '�', 'tier': 1},
+            'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'tier': 1},
             'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1},
             'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'tier': 1},
             'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1},
             'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'tier': 1},
             'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 20, 'icon': '🎲', 'tier': 1},
-            'blackout': {'name': 'Blackout', 'description': 'For 4 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'tier': 1},
+            'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'tier': 1},
             'spotlight': {'name': 'Spotlight', 'description': "Publicly reveal a target player's entire card inventory to the group.", 'price': 25, 'icon': '💡', 'tier': 1},
             'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'tier': 1},
             'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'tier': 1},
@@ -201,20 +201,20 @@
             'dispel': {'name': 'Dispel', 'description': 'Immediately removes Shackle and personal Inflation effects from yourself.', 'price': 30, 'icon': '💨', 'tier': 2},
             'swap': {'name': 'Swap', 'description': "Swap a random card from your hand with a random card from a target's hand.", 'price': 35, 'icon': '🔄', 'tier': 2},
             'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 35, 'icon': '🔀', 'tier': 2},
+            'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'tier': 2},
             'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'tier': 2},
-            'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. This card allows the user to bypass disguise effects and view the actual cards of the target in the bot\'s DM. Users under Blackout will remain unaffected.', 'price': 40, 'icon': '🔮', 'tier': 2},
-            'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 40, 'icon': '😈', 'tier': 2},
+            'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'tier': 2},
             'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'tier': 2},
+            'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'tier': 2},
+            'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 40, 'icon': '🛡️', 'tier': 2},
             // Tier 3
-            'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 45, 'icon': '🛡️', 'tier': 3},
             'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3},
-            'ricochet': {'name': 'Ricochet', 'description': 'Activate this card. The next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 50, 'icon': '↪️', 'tier': 3},
             'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 50, 'icon': '🎯', 'tier': 3},
-            'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 55, 'icon': '🪤', 'tier': 3},
+            'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 50, 'icon': '🪤', 'tier': 3},
             'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'tier': 3},
             'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 75, 'icon': '❓', 'tier': 3},
             // Special Tier
-            'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield to yourself or a target), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 80, 'icon': '🛐', 'tier': 4},
+            'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 80, 'icon': '🛐', 'tier': 4},
         };
 
         /**
@@ -271,5 +271,4 @@
     </script>
 </body>
 </html>
-
 
