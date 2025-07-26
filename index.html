@@ -166,6 +166,23 @@
                     <li class="flex items-start"><span class="text-xl mr-3 mt-1">📈</span><div><h3 class="font-semibold text-slate-200">Affected by Inflation</h3><p class="text-slate-400">For 1 hour, all cards in the store are double the price for everyone except the user who played the card.</p></div></li>
                 </ul>
             </section>
+
+            <!-- Special Events Section -->
+            <section id="events" class="bg-black/20 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-glow-fuchsia ring-1 ring-fuchsia-400/30">
+                <h2 class="text-2xl font-bold text-white border-b border-fuchsia-400/30 pb-3 mb-4 flex items-center">
+                    <span class="text-3xl mr-3">🎉</span> Special Events
+                </h2>
+                <p class="text-slate-400 mb-6">From time to time, the admin may trigger special global events that temporarily change the rules for everyone!</p>
+                <ul class="space-y-4">
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🎁</span><div><h3 class="font-semibold text-slate-200">BOGO (Buy One, Get One)</h3><p class="text-slate-400">Buy any card from the store and receive a second, random Tier 1 or 2 card for free.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🎅</span><div><h3 class="font-semibold text-slate-200">Secret Santa</h3><p class="text-slate-400">Every player randomly gives a gift (a card or coins) to another player.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">⏰</span><div><h3 class="font-semibold text-slate-200">Rush Hour</h3><p class="text-slate-400">All card cooldowns are temporarily disabled for everyone.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🤝</span><div><h3 class="font-semibold text-slate-200">Truce</h3><p class="text-slate-400">No negative cards can be played by anyone for a short period.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🎲</span><div><h3 class="font-semibold text-slate-200">Gambit</h3><p class="text-slate-400">Every player in the game instantly receives a new, random card.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">💰</span><div><h3 class="font-semibold text-slate-200">Coin Rush</h3><p class="text-slate-400">Every message sent in the group chat has a small chance to earn the sender free coins.</p></div></li>
+                    <li class="flex items-start"><span class="text-xl mr-3 mt-1">🎉</span><div><h3 class="font-semibold text-slate-200">Freebie Frenzy</h3><p class="text-slate-400">All Tier 1 cards (except Angel) become free in the store for a limited time.</p></div></li>
+                </ul>
+            </section>
         </main>
 
         <!-- Footer -->
@@ -180,14 +197,14 @@
         const POWER_CARDS = {
             // Tier 1
             'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'tier': 1},
-            'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 20, 'icon': '👼', 'tier': 1},
+            'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'tier': 1},
             'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1},
             'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'tier': 1},
-            'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1},
+            'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory and coin balance of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1},
             'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'tier': 1},
             'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 20, 'icon': '🎲', 'tier': 1},
             'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'tier': 1},
-            'spotlight': {'name': 'Spotlight', 'description': "Publicly reveal a target player's entire card inventory to the group.", 'price': 25, 'icon': '💡', 'tier': 1},
+            'spotlight': {'name': 'Spotlight', 'description': "Publicly reveal a target player's entire card inventory and coin balance to the group.", 'price': 25, 'icon': '💡', 'tier': 1},
             'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'tier': 1},
             'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'tier': 1},
             // Tier 2
