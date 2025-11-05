@@ -9,21 +9,10 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from google.api_core.exceptions import NotFound
 
-# --- CONFIGURATION ---
-# IMPORTANT: Before running, you need to set up your credentials.
-# 1. Create a file named 'config.py' in the same directory.
-# 2. In config.py, add the following lines:
-#    TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-#    FIREBASE_APP_ID = "YOUR_FIREBASE_APP_ID" # e.g., 'default-power-store'
-#    ADMIN_USER_ID = YOUR_TELEGRAM_USER_ID # e.g., 123456789 (must be an integer)
-# 3. Create a Firebase service account and download the JSON key file.
-#    Save it as 'firebase_credentials.json' in the same directory.
-
 try:
     from config import TELEGRAM_BOT_TOKEN, FIREBASE_APP_ID, ADMIN_USER_ID
 except ImportError:
     print("ERROR: config.py not found or missing variables. Please create it as per the instructions.")
-    # You can add placeholder values here for testing if you don't want to create the file immediately
     TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
     FIREBASE_APP_ID = "default-power-store"
     ADMIN_USER_ID = 123456789
@@ -40,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 # Initialize Firebase
 try:
-    # Check if the credentials file exists
     if os.path.exists("firebase_credentials.json"):
         cred = credentials.Certificate("firebase_credentials.json")
         firebase_admin.initialize_app(cred)
@@ -48,7 +36,7 @@ try:
         logger.info("Firebase initialized successfully.")
     else:
         logger.error("FATAL: firebase_credentials.json not found. Please download it from your Firebase project settings.")
-        db = None # Set db to None to indicate Firebase is not available
+        db = None 
         exit()
 except Exception as e:
     logger.error(f"FATAL: Failed to initialize Firebase: {e}")
@@ -895,4 +883,5 @@ def main() -> None:
     logger.info("Bot has stopped.")
 
 if __name__ == "__main__":
+
     main()
