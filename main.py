@@ -3,137 +3,264 @@ import os
 import re
 import random
 import time
+import asyncio
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
-import firebase_admin
-from firebase_admin import credentials, firestore
-from google.api_core.exceptions import NotFound
+from telegram.request import HTTPXRequest
+from supabase import create_client, Client
 
+# --- CONFIGURATION (Environment variables with config.py fallback) ---
 try:
-    from config import TELEGRAM_BOT_TOKEN, FIREBASE_APP_ID, ADMIN_USER_ID
+    import config
 except ImportError:
-    print("ERROR: config.py not found or missing variables. Please create it as per the instructions.")
-    TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-    FIREBASE_APP_ID = "default-power-store"
-    ADMIN_USER_ID = 123456789
-    print("WARNING: Using placeholder values for configuration.")
+    config = None
 
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or getattr(config, "TELEGRAM_BOT_TOKEN", None)
+ADMIN_USER_ID_VAL = os.environ.get("ADMIN_USER_ID") or getattr(config, "ADMIN_USER_ID", None)
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or getattr(config, "SUPABASE_URL", None)
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or getattr(config, "SUPABASE_KEY", None)
+
+if not TELEGRAM_BOT_TOKEN or not ADMIN_USER_ID_VAL:
+    raise ValueError("Missing required environment variables or config settings: TELEGRAM_BOT_TOKEN, ADMIN_USER_ID")
+
+ADMIN_USER_ID = int(ADMIN_USER_ID_VAL)
 
 # --- SETUP ---
-
-# Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase
+db: Client = None
 try:
-    if os.path.exists("firebase_credentials.json"):
-        cred = credentials.Certificate("firebase_credentials.json")
-        firebase_admin.initialize_app(cred)
-        db = firestore.client()
-        logger.info("Firebase initialized successfully.")
+    if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL != "YOUR_SUPABASE_URL" and SUPABASE_KEY != "YOUR_SUPABASE_KEY":
+        db = create_client(SUPABASE_URL, SUPABASE_KEY)
+        logger.info("Supabase initialized successfully.")
     else:
-        logger.error("FATAL: firebase_credentials.json not found. Please download it from your Firebase project settings.")
-        db = None 
-        exit()
+        logger.warning("Supabase URL or Key not fully configured. Using placeholder database state.")
 except Exception as e:
-    logger.error(f"FATAL: Failed to initialize Firebase: {e}")
+    logger.error(f"FATAL: Failed to initialize Supabase: {e}")
     db = None
-    exit()
+
 
 # --- CARD DEFINITIONS ---
 POWER_CARDS = {
     # Tier 1: Utility & Minor Effects
-    'speed': {'name': 'Speed', 'description': 'Instantly gain 20 Power Coins. A quick boost to get you ahead!', 'price': 15, 'icon': '⚡️', 'requires_target': False},
+    'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'requires_target': False},
     'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'requires_target': True},
     'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'requires_target': True},
-    'blackout': {'name': 'Blackout', 'description': 'For 4 hours, you are immune to Vision and Spotlight cards.', 'price': 15, 'icon': '🕶️', 'requires_target': False},
+    'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'requires_target': False},
     'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'requires_target': False},
-    'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 10, 'icon': '💰', 'requires_target': False},
+    'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'requires_target': False},
+    'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'requires_target': False},
     
     # Tier 2: Direct Interaction
-    'flame': {'name': 'Flame', 'description': 'Burn 10 Power Coins from a target player.', 'price': 25, 'icon': '🔥', 'requires_target': True},
+    'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'requires_target': True},
     'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 30, 'icon': '🌀', 'requires_target': True},
-    'spotlight': {'name': 'Spotlight', 'description': 'Publicly reveal a target player\'s entire card inventory to the group.', 'price': 25, 'icon': '�', 'requires_target': True},
-    'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma effect on a target player.', 'price': 25, 'icon': '⏳', 'requires_target': True},
+    'shackle': {'name': 'Shackle', 'description': 'For 1 hour, your target is unable to use any cards.', 'price': 30, 'icon': '⛓️', 'requires_target': True},
+    'spotlight': {'name': 'Spotlight', 'description': 'Publicly reveal a target player\'s entire card inventory to the group.', 'price': 25, 'icon': '💡', 'requires_target': True},
+    'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'requires_target': True},
     'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'requires_target': False},
-    
+    'dispel': {'name': 'Dispel', 'description': 'Immediately removes Shackle and personal Inflation effects from yourself.', 'price': 30, 'icon': '💨', 'requires_target': False},
+    'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 20, 'icon': '🎲', 'requires_target': True},
+
     # Tier 3: Powerful Effects
-    'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 35, 'icon': '🛡️', 'requires_target': False},
-    'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 40, 'icon': '😈', 'requires_target': True},
-    'karma': {'name': 'Karma', 'description': 'For 4 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'requires_target': False},
+    'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 40, 'icon': '🛡️', 'requires_target': False},
+    'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 50, 'icon': '🪤', 'requires_target': False},
+    'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'requires_target': False},
+    'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'requires_target': True},
+    'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'requires_target': True},
+    'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'requires_target': False},
     'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄', 'requires_target': True},
-    'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 40, 'icon': '📈', 'requires_target': False},
+    'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'requires_target': True},
+    'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'requires_target': False},
+    'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 50, 'icon': '🎯', 'requires_target': True},
+    'vortex': {'name': 'Vortex', 'description': 'All players in the game (including you) must immediately discard one random card.', 'price': 30, 'icon': '🌪️', 'requires_target': False},
+    'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 75, 'icon': '❓', 'requires_target': True},
+    'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 35, 'icon': '🔀', 'requires_target': False},
 
     # Special Tier: Game-Changing Power
-    'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 60, 'icon': '🛐', 'requires_target': False},
+    'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 80, 'icon': '🛐', 'requires_target': False},
 }
 
-NEGATIVE_CARDS = {'flame', 'glitch', 'devil', 'swap', 'spotlight'}
+NEGATIVE_CARDS = {'flame', 'glitch', 'devil', 'swap', 'spotlight', 'purge', 'amnesia', 'shackle', 'steal', 'double_or_nothing'}
 
 
 # --- HELPER FUNCTIONS ---
 
-def escape_markdown_v2(text: str) -> str:
+def escape_markdown_v2(text) -> str:
     """Escapes characters for Telegram's MarkdownV2 parse mode."""
-    if not text:
+    if text is None:
         return ""
-    return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)
+    return re.sub(r'([_*\[\]()~`>#+\-=|{}.!\\])', r'\\\1', str(text))
 
-def get_player_ref(user_id: int):
-    """Returns a Firestore reference to a player's profile."""
+async def send_safe_message(target_obj, text: str, reply_markup=None, parse_mode='MarkdownV2'):
+    """Sends or edits a message safely, falling back to plain text if MarkdownV2 parsing fails."""
+    try:
+        if hasattr(target_obj, 'reply_text'):
+            return await target_obj.reply_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        elif hasattr(target_obj, 'edit_message_text'):
+            return await target_obj.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+        elif hasattr(target_obj, 'send_message'):
+            return await target_obj.send_message(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+    except Exception as e:
+        logger.warning(f"Markdown parsing failed ({e}), sending plain text fallback.")
+        clean_text = text.replace('*', '').replace('_', '').replace('\\', '')
+        try:
+            if hasattr(target_obj, 'reply_text'):
+                return await target_obj.reply_text(clean_text, reply_markup=reply_markup)
+            elif hasattr(target_obj, 'edit_message_text'):
+                return await target_obj.edit_message_text(text=clean_text, reply_markup=reply_markup)
+            elif hasattr(target_obj, 'send_message'):
+                return await target_obj.send_message(text=clean_text, reply_markup=reply_markup)
+        except Exception as e2:
+            logger.error(f"Failed to send fallback plain text message: {e2}")
+
+def get_player_data(user_id: int) -> dict:
+    """Retrieves player data from Supabase using telegram_id or user_id."""
     if not db: return None
-    return db.collection(f'artifacts/{FIREBASE_APP_ID}/users').document(str(user_id))
+    try:
+        response = db.table('users').select('*').eq('telegram_id', str(user_id)).execute()
+        if not response.data or len(response.data) == 0:
+            response = db.table('users').select('*').eq('telegram_id', user_id).execute()
+        if not response.data or len(response.data) == 0:
+            try:
+                response = db.table('users').select('*').eq('user_id', user_id).execute()
+            except Exception:
+                pass
 
-def get_game_state_ref():
-    """Returns a Firestore reference to the global game state."""
+        if response.data and len(response.data) > 0:
+            data = response.data[0]
+            tid = data.get('telegram_id') or data.get('user_id') or user_id
+            data['user_id'] = int(tid)
+            if not data.get('status') or not isinstance(data.get('status'), dict):
+                data['status'] = {}
+            if not data.get('cards') or not isinstance(data.get('cards'), list):
+                data['cards'] = []
+            return data
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching player data for {user_id}: {e}")
+        return None
+
+def get_player_by_username(username: str) -> dict:
+    """Retrieves player data by Telegram username."""
     if not db: return None
-    return db.collection(f'artifacts/{FIREBASE_APP_ID}/state').document('game_data')
+    try:
+        response = db.table('users').select('*').ilike('username', username).execute()
+        if response.data and len(response.data) > 0:
+            data = response.data[0]
+            tid = data.get('telegram_id') or data.get('user_id')
+            if tid: data['user_id'] = int(tid)
+            if not data.get('status') or not isinstance(data.get('status'), dict):
+                data['status'] = {}
+            if not data.get('cards') or not isinstance(data.get('cards'), list):
+                data['cards'] = []
+            return data
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching player by username {username}: {e}")
+        return None
 
-def get_player_data(user_id: int):
-    """Retrieves player data from Firestore."""
-    player_ref = get_player_ref(user_id)
-    if not player_ref: return None
-    doc = player_ref.get()
-    return doc.to_dict() if doc.exists else None
+def get_all_players() -> list:
+    """Retrieves all players from Supabase."""
+    if not db: return []
+    try:
+        response = db.table('users').select('*').execute()
+        players = []
+        for data in (response.data or []):
+            tid = data.get('telegram_id') or data.get('user_id')
+            if tid: data['user_id'] = int(tid)
+            if not data.get('status') or not isinstance(data.get('status'), dict):
+                data['status'] = {}
+            if not data.get('cards') or not isinstance(data.get('cards'), list):
+                data['cards'] = []
+            players.append(data)
+        return players
+    except Exception as e:
+        logger.error(f"Error fetching all players: {e}")
+        return []
+
+def save_player_data(user_id: int, player_data: dict):
+    """Upserts full player profile into Supabase."""
+    if not db: return
+    try:
+        payload = {'telegram_id': str(user_id), **player_data}
+        db.table('users').upsert(payload, on_conflict='telegram_id').execute()
+    except Exception as e:
+        logger.error(f"Error saving player data for {user_id}: {e}")
+
+def update_player_data(user_id: int, updates: dict):
+    """Updates specific fields of a player profile in Supabase."""
+    if not db: return
+    try:
+        db.table('users').update(updates).eq('telegram_id', str(user_id)).execute()
+    except Exception as e:
+        logger.error(f"Error updating player data for {user_id}: {e}")
+
+def get_game_state() -> dict:
+    """Retrieves global game state from Supabase."""
+    if not db: return {}
+    try:
+        response = db.table('game_state').select('*').eq('id', 'game_data').execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return {}
+    except Exception as e:
+        logger.error(f"Error fetching game state: {e}")
+        return {}
+
+def update_game_state(updates: dict):
+    """Updates global game state in Supabase."""
+    if not db: return
+    try:
+        payload = {'id': 'game_data', **updates}
+        db.table('game_state').upsert(payload).execute()
+    except Exception as e:
+        logger.error(f"Error updating game state: {e}")
 
 async def log_activity(bot: Bot, message: str):
     """Logs an activity message."""
     logger.info(f"ACTIVITY: {message}")
+
 
 # --- COMMAND HANDLERS ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles the /start command. Registers a new player."""
     user = update.effective_user
-    player_ref = get_player_ref(user.id)
-    
-    if not player_ref:
+    if not db:
         await update.message.reply_text("Database is not configured. Please contact the admin.")
         return
 
-    if not player_ref.get().exists:
-        player_data = {
-            'userId': user.id,
+    player_data = get_player_data(user.id)
+    if not player_data:
+        new_player = {
+            'user_id': user.id,
             'username': user.username,
             'first_name': user.first_name,
-            'coins': 50,
+            'coins': 5,
             'cards': [],
             'status': {
                 'protected': False,
-                'karma_active': False,
+                'karma_active_until': 0,
+                'ricochet_active_until': 0,
                 'blackout_until': 0,
                 'mirage_until': 0,
-                'black_market_until': 0
-            },
-            'createdAt': firestore.SERVER_TIMESTAMP
+                'black_market_until': 0,
+                'shackled_until': 0,
+                'trap_active': False,
+                'last_card_use_time': 0,
+                'speed_active_until': 0,
+                'frenzy_active': 0,
+                'inflation_immunity_until': 0
+            }
         }
-        player_ref.set(player_data)
+        save_player_data(user.id, new_player)
         await update.message.reply_text(
             f"Welcome, {user.first_name}! 🎉\n\n"
-            "You have joined the Power Store tournament and received 50 starter Power Coins (PC).\n\n"
+            "You have joined the Power Store tournament and received 5 starter Power Coins (PC).\n\n"
             "Here are some commands to get you started:\n"
             "/profile - Check your coins and cards.\n"
             "/store - See available power cards.\n"
@@ -141,7 +268,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         await log_activity(context.bot, f"🎉 {user.first_name} (@{user.username}) has joined the game.")
     else:
-        player_ref.update({
+        update_player_data(user.id, {
             'username': user.username,
             'first_name': user.first_name
         })
@@ -152,17 +279,22 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(
         "--- Power Store Bot Help ---\n\n"
         "/start - Join the game.\n"
-        "/profile - Check your coins and cards.\n"
-        "/store - Browse and buy power cards.\n"
-        "/use <CardName> - Use a power card. (Reply to a user's message to target them).\n\n"
+        "/profile - Check your coins and cards (private chat only).\n"
+        "/store - Browse and buy power cards (private chat only).\n"
+        "/use <CardName> [Args] - Use a power card in the group chat. (Reply to a user's message to target them).\n\n"
         "--- Admin Commands ---\n"
         "/award <amount> @username - Give coins to a player.\n"
+        "/awardall <amount> - Give coins to all players.\n"
         "/givecard <CardName> @username - Give a card to a player.\n"
         "/allplayers - View a summary of all players."
     )
 
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Displays the player's profile."""
+    """Displays the player's profile. Can only be used in private chat."""
+    if update.message.chat.type != 'private':
+        await update.message.reply_text("You can only check your profile in a private chat with me. Please send /profile here.")
+        return
+
     user_id = update.effective_user.id
     player_data = get_player_data(user_id)
 
@@ -176,30 +308,41 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     cards_str = escape_markdown_v2(", ".join(cards_list) if cards_list else "None")
     
     status_list = []
-    status = player_data.get('status', {})
+    status = player_data.get('status', {}) or {}
     now = time.time()
     if status.get('protected'):
         status_list.append("Protected 🛡️")
-    if status.get('karma_active'):
+    if status.get('trap_active'):
+        status_list.append("Trap Active 🪤")
+    if status.get('karma_active_until', 0) > now:
         status_list.append("Karma Active ⚖️")
+    if status.get('ricochet_active_until', 0) > now:
+        status_list.append("Ricochet Active ↪️")
     if status.get('blackout_until', 0) > now:
         status_list.append("Blackout Active 🕶️")
     if status.get('mirage_until', 0) > now:
         status_list.append("Mirage Active 🏜️")
     if status.get('black_market_until', 0) > now:
         status_list.append("In the Black Market 💰")
-    
-    game_state_ref = get_game_state_ref()
-    if game_state_ref:
-        game_state_doc = game_state_ref.get()
-        game_state = game_state_doc.to_dict() if game_state_doc.exists else {}
-        inflation_active = game_state.get('inflation_until', 0) > time.time()
-        inflation_user_id = game_state.get('inflation_user_id')
-        if inflation_active and user_id != inflation_user_id:
-            status_list.append("Affected by Inflation 📈")
+    if status.get('shackled_until', 0) > now:
+        status_list.append("Shackled ⛓️")
+    if status.get('speed_active_until', 0) > now:
+        status_list.append("Speed Active ⚡️")
+    if status.get('frenzy_active', 0) > 0:
+        status_list.append("Frenzy Active 🔀")
+    if status.get('inflation_immunity_until', 0) > now:
+        status_list.append("Immune to Inflation 🛡️")
 
-    status_str = ", ".join(status_list) if status_list else "Normal"
+    game_state = get_game_state()
+    inflation_active = game_state.get('inflation_until', 0) > time.time()
+    inflation_user_id = game_state.get('inflation_user_id')
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and status.get('inflation_immunity_until', 0) < now
+    if is_affected_by_inflation:
+        status_list.append("Affected by Inflation 📈")
+    if player_data.get('msgc_registered'):
+        status_list.append("MSGC Registered ✅")
 
+    status_str = escape_markdown_v2(", ".join(status_list) if status_list else "Normal")
 
     message = (
         f"👤 *Profile for {safe_first_name}*\n\n"
@@ -207,30 +350,26 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"🎴 *Your Cards:* {cards_str}\n"
         f"✨ *Status:* {status_str}"
     )
-    await update.message.reply_text(message, parse_mode='MarkdownV2')
+    await send_safe_message(update.message, message, parse_mode='MarkdownV2')
+
 
 # --- INTERACTIVE STORE ---
 
 def build_store_menu(user_id):
     """Builds the main store menu text and keyboard markup, considering inflation and black market."""
-    game_state_ref = get_game_state_ref()
-    if not game_state_ref:
-        return "The store is currently unavailable.", None
-
-    game_state_doc = game_state_ref.get()
-    game_state = game_state_doc.to_dict() if game_state_doc.exists else {}
-    
+    game_state = get_game_state()
     player_data = get_player_data(user_id)
     player_status = player_data.get('status', {}) if player_data else {}
 
     inflation_active = game_state.get('inflation_until', 0) > time.time()
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
 
     text = "🛒 *Welcome to the Power Store\\!* \nSelect a card to view its details:"
     if black_market_active:
         text += "\n\n💰 *Black Market prices are active\\! All cards are 50% off for you\\!*"
-    elif inflation_active and user_id != inflation_user_id:
+    elif is_affected_by_inflation:
         text += "\n\n📈 *Inflation is active\\! Prices are doubled\\!*"
 
     keyboard = []
@@ -242,13 +381,16 @@ def build_store_menu(user_id):
     return text, reply_markup
 
 async def store_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Displays the power card store."""
+    """Displays the power card store. Can only be used in private chat."""
+    if update.message.chat.type != 'private':
+        await update.message.reply_text("You can only access the store in a private chat with me. Please send /store here.")
+        return
+
     text, reply_markup = build_store_menu(update.effective_user.id)
     if reply_markup:
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+        await send_safe_message(update.message, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
     else:
-        await update.message.reply_text(text)
-
+        await send_safe_message(update.message, text, parse_mode=None)
 
 async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles showing the details of a single card."""
@@ -258,25 +400,19 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     card = POWER_CARDS[card_id]
     user_id = query.from_user.id
 
-    game_state_ref = get_game_state_ref()
-    if not game_state_ref:
-        await query.edit_message_text("Store is currently unavailable.")
-        return
-        
-    game_state_doc = game_state_ref.get()
-    game_state = game_state_doc.to_dict() if game_state_doc.exists else {}
-    
+    game_state = get_game_state()
     player_data = get_player_data(user_id)
     player_status = player_data.get('status', {}) if player_data else {}
 
     inflation_active = game_state.get('inflation_until', 0) > time.time()
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
 
     price = card['price']
     if black_market_active:
         price = int(price * 0.5)
-    elif inflation_active and user_id != inflation_user_id:
+    elif is_affected_by_inflation:
         price = int(price * 2)
 
     text = (
@@ -291,78 +427,71 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+    await send_safe_message(query, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 async def handle_back_to_store_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles the 'Back to Store' button press."""
     query = update.callback_query
     await query.answer()
     text, reply_markup = build_store_menu(query.from_user.id)
-    await query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode='MarkdownV2')
-
-@firestore.transactional
-def buy_card_transaction(transaction, player_ref, card_id, card_info, price):
-    """Transactional logic for buying a card."""
-    player_doc = player_ref.get(transaction=transaction)
-    if not player_doc.exists:
-        raise Exception("Player not found.")
-
-    player_data = player_doc.to_dict()
-    current_coins = player_data.get('coins', 0)
-
-    if current_coins < price:
-        raise Exception(f"Insufficient funds! You need {price} PC but only have {current_coins} PC.")
-    
-    transaction.update(player_ref, {
-        'coins': firestore.Increment(-price),
-        'cards': firestore.ArrayUnion([card_id])
-    })
-    return f"✅ Success! You bought a {card_info['name']} card for {price} PC."
+    await send_safe_message(query, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handles the callback from the store's buy buttons."""
+    """Handles purchasing a card."""
     query = update.callback_query
     await query.answer()
     card_id = query.data.split('_', 1)[1]
     card = POWER_CARDS[card_id]
     user_id = query.from_user.id
-    player_ref = get_player_ref(user_id)
 
-    if not player_ref:
+    if not db:
         await query.edit_message_text("Database not available.")
         return
 
-    game_state_ref = get_game_state_ref()
-    game_state_doc = game_state_ref.get()
-    game_state = game_state_doc.to_dict() if game_state_doc.exists else {}
-    
     player_data = get_player_data(user_id)
-    player_status = player_data.get('status', {}) if player_data else {}
+    if not player_data:
+        await query.edit_message_text("Player not found.")
+        return
+
+    current_cards = player_data.get('cards', [])
+    if card_id in current_cards:
+        await query.edit_message_text(f"You already have a {card['name']} card. Use it before buying another one.")
+        return
+
+    game_state = get_game_state()
+    player_status = player_data.get('status', {}) or {}
 
     inflation_active = game_state.get('inflation_until', 0) > time.time()
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
 
     price = card['price']
     if black_market_active:
         price = int(price * 0.5)
-    elif inflation_active and user_id != inflation_user_id:
+    elif is_affected_by_inflation:
         price = int(price * 2)
-    
-    try:
-        transaction = db.transaction()
-        result = buy_card_transaction(transaction, player_ref, card_id, card, price)
-        
-        await query.edit_message_text(text=result)
-        if "Success" in result:
-                await log_activity(context.bot, f"🛒 {query.from_user.first_name} bought a {card['name']} card.")
 
-    except Exception as e:
-        logger.error(f"Error during buy transaction: {e}")
-        await query.edit_message_text(text=f"Purchase failed: {e}")
+    current_coins = player_data.get('coins', 0)
+    if current_coins < price:
+        await query.edit_message_text(f"Insufficient funds! You need {price} PC but only have {current_coins} PC.")
+        return
+
+    new_coins = current_coins - price
+    new_cards = current_cards + [card_id]
+    update_player_data(user_id, {'coins': new_coins, 'cards': new_cards})
+
+    result = f"✅ Success! You bought a {card['name']} card for {price} PC."
+    await query.edit_message_text(text=result)
+    await log_activity(context.bot, f"🛒 {query.from_user.first_name} bought a {card['name']} card.")
+
 
 async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handles the /use command with robust parsing for card names and IDs."""
+    """Handles the /use command."""
+    if update.message.chat.type == 'private':
+        await update.message.reply_text("You can only use cards in the main group chat.")
+        return
+
     user = update.effective_user
     args = context.args
     
@@ -370,7 +499,6 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Usage: /use <Card Name or ID> [args...]")
         return
 
-    # --- Card Name/ID Parsing Logic ---
     card_id = None
     card_args = []
     
@@ -388,13 +516,34 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 break
 
     if not card_id:
-        await update.message.reply_text(f"Card not found. Please use the exact card name or ID.")
+        await update.message.reply_text("Card not found. Please use the exact card name or ID.")
         return
-        
-    # --- End of Parsing Logic ---
 
     player_data = get_player_data(user.id)
-    if not player_data or card_id not in player_data.get('cards', []):
+    if not player_data:
+        await update.message.reply_text("You are not registered. Use /start to join.")
+        return
+
+    now = time.time()
+    status = player_data.get('status', {}) or {}
+    
+    if status.get('frenzy_active', 0) == 0:
+        last_use = status.get('last_card_use_time', 0)
+        cooldown = 5
+
+        if status.get('speed_active_until', 0) > now:
+            cooldown /= 2
+
+        if now - last_use < cooldown:
+            remaining_time = int(cooldown - (now - last_use))
+            await update.message.reply_text(f"You must wait {remaining_time // 60}m {remaining_time % 60}s before using another card.")
+            return
+
+    if status.get('shackled_until', 0) > time.time() and card_id != 'dispel':
+        await update.message.reply_text("⛓️ You are shackled! You cannot use any cards right now (except Dispel).")
+        return
+
+    if card_id not in player_data.get('cards', []):
         await update.message.reply_text(f"You don't have a {POWER_CARDS[card_id]['name']} card.")
         return
     
@@ -405,206 +554,411 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     card = POWER_CARDS[card_id]
     target_user = None
     if card['requires_target']:
-        if not update.message.reply_to_message:
-            await update.message.reply_text(f"To use the {card['name']} card, you must reply to a message from the player you want to target.")
+        effective_msg = update.effective_message
+        reply_msg = effective_msg.reply_to_message if effective_msg else None
+
+        if reply_msg and reply_msg.from_user:
+            target_user = reply_msg.from_user
+        elif card_args:
+            target_username = card_args[0].lstrip('@')
+            target_player_data = get_player_by_username(target_username)
+            if target_player_data:
+                class PseudoUser:
+                    def __init__(self, uid, fname, uname):
+                        self.id = uid
+                        self.first_name = fname
+                        self.username = uname
+                target_user = PseudoUser(
+                    target_player_data['user_id'],
+                    target_player_data.get('first_name', target_username),
+                    target_player_data.get('username', target_username)
+                )
+            else:
+                await update.message.reply_text(f"Player @{target_username} was not found in the game. They must use /start first.")
+                return
+
+        if not target_user:
+            await update.message.reply_text(f"To use the {card['name']} card, reply to a message from the target player OR mention their username (e.g., /use {card['name']} @username).")
             return
-        target_user = update.message.reply_to_message.from_user
+
         if target_user.id == user.id:
             await update.message.reply_text("You cannot target yourself with this card.")
             return
 
+        user_is_msgc = bool(player_data.get('msgc_registered', False))
+        target_player_data = get_player_data(target_user.id)
+        if target_player_data:
+            target_is_msgc = bool(target_player_data.get('msgc_registered', False))
+            if user_is_msgc and not target_is_msgc:
+                await update.message.reply_text("❌ MSGC registered players can only use cards on other MSGC registered players.")
+                return
+            elif not user_is_msgc and target_is_msgc:
+                await update.message.reply_text("❌ Non-MSGC players cannot use cards on MSGC registered players.")
+                return
+    
+    if card_id == 'double_or_nothing':
+        await handle_double_or_nothing_challenge(update, context, user, target_user)
+        return
+
     try:
-        await execute_card_effect(update, context, user, card_id, target_user)
+        await execute_card_effect(update, context, user, card_id, target_user, card_args)
     except Exception as e:
         logger.error(f"Error executing card effect: {e}")
         await update.message.reply_text(f"Action failed: {e}")
 
-@firestore.transactional
-def use_card_transaction(transaction, user_ref, target_ref, card_id, game_state_ref):
-    """Transactional logic for using a card."""
+
+def process_use_card(user_data, target_data, card_id, card_args=None):
+    """Core logic for executing card effect."""
     card = POWER_CARDS[card_id]
-    
-    user_doc = user_ref.get(transaction=transaction)
-    if not user_doc.exists:
-        raise Exception("Your player data was not found.")
-    
-    user_data = user_doc.to_dict()
+    user_id = user_data['user_id']
     user_name = user_data.get('first_name', 'A player')
+    user_status = user_data.get('status', {}) or {}
+    user_cards = list(user_data.get('cards', []))
 
-    target_doc = None
-    target_data = {}
-    target_name = ""
-    if target_ref:
-        target_doc = target_ref.get(transaction=transaction)
-        if not target_doc.exists:
-            raise Exception("Target player not found.")
-        target_data = target_doc.to_dict()
-        target_name = target_data.get('first_name', 'another player')
+    target_id = target_data.get('user_id') if target_data else None
+    target_name = target_data.get('first_name', 'another player') if target_data else ""
+    target_status = target_data.get('status', {}) if target_data else {}
+    target_cards = list(target_data.get('cards', [])) if target_data else []
 
-    if card_id in NEGATIVE_CARDS and target_ref:
-        if target_data.get('status', {}).get('karma_active'):
-            effect_target_ref = user_ref
-            effect_target_data = user_data
+    if card_id in NEGATIVE_CARDS and target_data:
+        if target_status.get('trap_active'):
+            target_status['trap_active'] = False
+            user_coins = max(0, user_data.get('coins', 0) - 15)
+            if card_id in user_cards: user_cards.remove(card_id)
+            user_status['last_card_use_time'] = time.time()
+            
+            update_player_data(target_id, {'status': target_status})
+            update_player_data(user_id, {'coins': user_coins, 'cards': user_cards, 'status': user_status})
+            return {'public': f"🪤 Sprung! {target_name}'s Trap nullified the {card['name']} card and made {user_name} lose 15 coins!"}
+
+        if target_status.get('ricochet_active_until', 0) > time.time():
+            target_status['ricochet_active_until'] = 0
+            if card_id in user_cards: user_cards.remove(card_id)
+            user_status['last_card_use_time'] = time.time()
+
+            update_player_data(target_id, {'status': target_status})
+            update_player_data(user_id, {'cards': user_cards, 'status': user_status})
+            return {
+                'action': 'trigger_ricochet',
+                'data': {
+                    'attacker_id': user_id,
+                    'original_target_id': target_id,
+                    'card_id': card_id,
+                    'card_args': card_args
+                }
+            }
+
+        if target_status.get('karma_active_until', 0) > time.time():
+            reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the {card['name']} card back onto {user_name}!"
             
             if card_id == 'flame':
-                transaction.update(effect_target_ref, {'coins': firestore.Increment(-10)})
+                user_data['coins'] = max(0, user_data.get('coins', 0) - 10)
             elif card_id == 'devil':
-                stolen_amount = min(25, effect_target_data.get('coins', 0))
-                transaction.update(effect_target_ref, {'coins': firestore.Increment(-stolen_amount)})
+                stolen_amount = min(25, user_data.get('coins', 0))
+                user_data['coins'] = max(0, user_data.get('coins', 0) - stolen_amount)
             elif card_id == 'glitch':
-                user_cards = effect_target_data.get('cards', [])
                 if user_cards:
-                    card_to_discard = random.choice(user_cards)
-                    transaction.update(effect_target_ref, {'cards': firestore.ArrayRemove([card_to_discard])})
-            
-            transaction.update(user_ref, {'cards': firestore.ArrayRemove([card_id])})
-            return {'public': f"⚖️ Karma! {target_name}'s karma reflected the {card['name']} card back onto {user_name}!"}
+                    c_disc = random.choice(user_cards)
+                    user_cards.remove(c_disc)
+            elif card_id == 'steal':
+                stealable = [c for c in user_cards if c != 'steal' and c not in target_cards]
+                if stealable:
+                    stolen = random.choice(stealable)
+                    user_cards.remove(stolen)
+                    target_cards.append(stolen)
+                    update_player_data(target_id, {'cards': target_cards})
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reversed the Steal! Instead, {target_name} stole a {POWER_CARDS[stolen]['name']} card from {user_name}!"
+            elif card_id == 'spotlight':
+                c_disp = [c for c in user_cards if c != 'spotlight']
+                cards_str = ", ".join([POWER_CARDS[cid]['name'] for cid in c_disp if cid in POWER_CARDS]) if c_disp else "None"
+                reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Spotlight back onto {user_name}!\n💡 Their cards are: {cards_str}"
+            elif card_id == 'purge':
+                if card_args:
+                    p_name = " ".join(card_args)
+                    p_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == p_name.lower()), None)
+                    if p_id and p_id in user_cards:
+                        user_cards.remove(p_id)
+                        reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Purge back onto {user_name}, forcing them to discard their own {POWER_CARDS[p_id]['name']} card!"
+            elif card_id == 'amnesia':
+                user_cards = []
+                reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Amnesia back onto {user_name}, forcing them to discard their entire hand!"
+            elif card_id == 'shackle':
+                user_status['shackled_until'] = time.time() + (1 * 60 * 60)
+                reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Shackle back onto {user_name}!"
 
-        if target_data.get('status', {}).get('protected'):
-            transaction.update(target_ref, {'status.protected': False})
-            transaction.update(user_ref, {'cards': firestore.ArrayRemove([card_id])})
+            if card_id in user_cards: user_cards.remove(card_id)
+            user_status['last_card_use_time'] = time.time()
+            update_player_data(user_id, {'coins': user_data.get('coins', 0), 'cards': user_cards, 'status': user_status})
+            return {'public': reflected_message}
+
+        if target_status.get('protected'):
+            target_status['protected'] = False
+            if card_id in user_cards: user_cards.remove(card_id)
+            user_status['last_card_use_time'] = time.time()
+            update_player_data(target_id, {'status': target_status})
+            update_player_data(user_id, {'cards': user_cards, 'status': user_status})
             return {'public': f"🛡️ Blocked! {target_name}'s Forcefield deflected the {card['name']} card!"}
 
     effect_message = ""
+    special_action = None
 
     if card_id == 'speed':
-        transaction.update(user_ref, {'coins': firestore.Increment(20)})
-        effect_message = f"⚡️ {user_name} used a Speed card and instantly gained 20 Power Coins!"
+        user_status['speed_active_until'] = time.time() + (1 * 60 * 60)
+        effect_message = f"⚡️ {user_name} activated Speed! Your card cooldown is halved for 1 hour."
     elif card_id == 'reroll':
-        cards_to_reroll = [c for c in user_data.get('cards', []) if c != 'reroll']
+        cards_to_reroll = [c for c in user_cards if c != 'reroll']
         if not cards_to_reroll:
             raise Exception("You have no other cards to re-roll!")
-        
-        value_to_regain = 0
-        for c_id in cards_to_reroll:
-            value_to_regain += POWER_CARDS.get(c_id, {}).get('price', 0)
-        
-        coins_gained = int(value_to_regain * 0.75)
-        transaction.update(user_ref, {
-            'cards': firestore.ArrayRemove(cards_to_reroll),
-            'coins': firestore.Increment(coins_gained)
-        })
-        effect_message = f"♻️ {user_name} used Re-roll, discarded {len(cards_to_reroll)} cards, and regained {coins_gained} coins!"
-
+        val = sum(POWER_CARDS.get(c, {}).get('price', 0) for c in cards_to_reroll)
+        gained = int(val * 0.75)
+        user_cards = [c for c in user_cards if c not in cards_to_reroll]
+        user_data['coins'] = user_data.get('coins', 0) + gained
+        effect_message = f"♻️ {user_name} used Re-roll, discarded {len(cards_to_reroll)} cards, and regained {gained} coins!"
     elif card_id == 'flame':
-        transaction.update(target_ref, {'coins': firestore.Increment(-10)})
+        target_coins = max(0, target_data.get('coins', 0) - 10)
+        update_player_data(target_id, {'coins': target_coins})
         effect_message = f"🔥 {user_name} used Flame on {target_name}, burning 10 Power Coins!"
     elif card_id == 'angel':
         if user_data.get('coins', 0) < 20:
             raise Exception("You need at least 20 coins to use the Angel card.")
-        transaction.update(user_ref, {'coins': firestore.Increment(-20)})
-        transaction.update(target_ref, {'coins': firestore.Increment(20)})
+        user_data['coins'] -= 20
+        update_player_data(target_id, {'coins': target_data.get('coins', 0) + 20})
         effect_message = f"👼 {user_name} used an Angel card to gift 20 Power Coins to {target_name}!"
     elif card_id == 'devil':
-        stolen_amount = min(25, target_data.get('coins', 0))
-        transaction.update(target_ref, {'coins': firestore.Increment(-stolen_amount)})
-        transaction.update(user_ref, {'coins': firestore.Increment(stolen_amount)})
-        effect_message = f"😈 {user_name} used a Devil card and stole {stolen_amount} Power Coins from {target_name}!"
+        stolen = min(25, target_data.get('coins', 0))
+        update_player_data(target_id, {'coins': target_data.get('coins', 0) - stolen})
+        user_data['coins'] = user_data.get('coins', 0) + stolen
+        effect_message = f"😈 {user_name} used a Devil card and stole {stolen} Power Coins from {target_name}!"
     elif card_id == 'karma':
-        transaction.update(user_ref, {'status.karma_active': True})
-        effect_message = f"⚖️ {user_name} activated a Karma card! Negative cards will be reflected for 4 hours."
+        user_status['karma_active_until'] = time.time() + (2 * 60 * 60)
+        effect_message = f"⚖️ {user_name} activated a Karma card! Negative cards will be reflected for 2 hours."
+    elif card_id == 'ricochet':
+        user_status['ricochet_active_until'] = time.time() + (1 * 60 * 60)
+        effect_message = f"↪️ {user_name} activated Ricochet! The next negative card will be redirected."
     elif card_id == 'forcefield':
-        transaction.update(user_ref, {'status.protected': True})
+        user_status['protected'] = True
         effect_message = f"🛡️ {user_name} activated a Forcefield and is now protected from the next negative card."
+    elif card_id == 'trap':
+        user_status['trap_active'] = True
+        effect_message = f"🪤 {user_name} set a Trap!"
     elif card_id == 'vision':
-        if target_data.get('status', {}).get('blackout_until', 0) > time.time():
+        if target_status.get('blackout_until', 0) > time.time():
             return {'private': f"🕶️ Your Vision was blocked! {target_name} is under a Blackout.", 'public': f"👁️ {user_name} used a Vision card on another player."}
-        if target_data.get('status', {}).get('mirage_until', 0) > time.time():
-            fake_cards = [random.choice(list(POWER_CARDS.keys())) for _ in range(random.randint(1, 3))]
-            cards_list = [POWER_CARDS[cid]['name'] for cid in fake_cards]
-            cards_str = ", ".join(cards_list)
-            return {'private': f"🏜️ You used Vision on {target_name}. A mirage shows they are holding: {cards_str}.", 'public': f"👁️ {user_name} used a Vision card on another player."}
-        target_cards = target_data.get('cards', [])
-        if not target_cards:
-            cards_str = "None"
-        else:
-            cards_list = [POWER_CARDS[cid]['name'] for cid in target_cards if cid in POWER_CARDS]
-            cards_str = ", ".join(cards_list)
-        return {'private': f"👁️ You used Vision on {target_name}. They are holding: {cards_str}.", 'public': f"👁️ {user_name} used a Vision card on another player."}
+        if target_status.get('mirage_until', 0) > time.time():
+            fake = [random.choice(list(POWER_CARDS.keys())) for _ in range(random.randint(1, 3))]
+            cstr = ", ".join([POWER_CARDS[cid]['name'] for cid in fake])
+            return {'private': f"🏜️ You used Vision on {target_name}. A mirage shows they are holding: {cstr}.", 'public': f"👁️ {user_name} used a Vision card on another player."}
+        cstr = ", ".join([POWER_CARDS[cid]['name'] for cid in target_cards if cid in POWER_CARDS]) if target_cards else "None"
+        return {'private': f"👁️ You used Vision on {target_name}. They are holding: {cstr}.", 'public': f"👁️ {user_name} used a Vision card on another player."}
+    elif card_id == 'clairvoyance':
+        if target_status.get('blackout_until', 0) > time.time():
+            return {'private': f"🕶️ Your Clairvoyance was blocked! {target_name} is under a Blackout.", 'public': f"🔮 {user_name} used a Clairvoyance card on another player."}
+        cstr = ", ".join([POWER_CARDS[cid]['name'] for cid in target_cards if cid in POWER_CARDS]) if target_cards else "None"
+        return {'private': f"🔮 You used Clairvoyance on {target_name}. Their true cards are: {cstr}.", 'public': f"🔮 {user_name} used a Clairvoyance card on another player."}
     elif card_id == 'spotlight':
-        if target_data.get('status', {}).get('blackout_until', 0) > time.time():
+        if target_status.get('blackout_until', 0) > time.time():
             effect_message = f"🕶️ {user_name}'s Spotlight was blocked! {target_name} is under a Blackout."
-        elif target_data.get('status', {}).get('mirage_until', 0) > time.time():
-            fake_cards = [random.choice(list(POWER_CARDS.keys())) for _ in range(random.randint(1, 3))]
-            cards_list = [POWER_CARDS[cid]['name'] for cid in fake_cards]
-            cards_str = ", ".join(cards_list)
-            effect_message = f"💡 {user_name} used Spotlight on {target_name}! A mirage shows their cards are: {cards_str}"
+        elif target_status.get('mirage_until', 0) > time.time():
+            fake = [random.choice(list(POWER_CARDS.keys())) for _ in range(random.randint(1, 3))]
+            cstr = ", ".join([POWER_CARDS[cid]['name'] for cid in fake])
+            effect_message = f"💡 {user_name} used Spotlight on {target_name}! A mirage shows their cards are: {cstr}"
         else:
-            target_cards = target_data.get('cards', [])
-            if not target_cards:
-                cards_str = "None"
-            else:
-                cards_list = [POWER_CARDS[cid]['name'] for cid in target_cards if cid in POWER_CARDS]
-                cards_str = ", ".join(cards_list)
-            effect_message = f"💡 {user_name} used Spotlight on {target_name}! Their cards are: {cards_str}"
+            cstr = ", ".join([POWER_CARDS[cid]['name'] for cid in target_cards if cid in POWER_CARDS]) if target_cards else "None"
+            effect_message = f"💡 {user_name} used Spotlight on {target_name}! Their cards are: {cstr}"
     elif card_id == 'blackout':
-        four_hours_from_now = time.time() + (4 * 60 * 60)
-        transaction.update(user_ref, {'status.blackout_until': four_hours_from_now})
+        user_status['blackout_until'] = time.time() + (4 * 60 * 60)
         effect_message = f"🕶️ {user_name} activated Blackout! They are immune to Vision and Spotlight for 4 hours."
     elif card_id == 'mirage':
-        one_hour_from_now = time.time() + (1 * 60 * 60)
-        transaction.update(user_ref, {'status.mirage_until': one_hour_from_now})
+        user_status['mirage_until'] = time.time() + (1 * 60 * 60)
         effect_message = f"🏜️ {user_name} cast a Mirage on themself! Their hand will appear differently to spies for 1 hour."
     elif card_id == 'time_warp':
-        transaction.update(target_ref, {'status.karma_active': False})
-        effect_message = f"⏳ {user_name} used Time Warp on {target_name}, ending their Karma effect immediately!"
+        target_status['karma_active_until'] = 0
+        target_status['shackled_until'] = 0
+        update_player_data(target_id, {'status': target_status})
+        effect_message = f"⏳ {user_name} used Time Warp on {target_name}, ending their Karma or Shackle effect immediately!"
     elif card_id == 'glitch':
-        target_cards = target_data.get('cards', [])
         if not target_cards:
             effect_message = f"🌀 {user_name} tried to glitch {target_name}, but they had no cards to discard!"
         else:
-            card_to_discard = random.choice(target_cards)
-            transaction.update(target_ref, {'cards': firestore.ArrayRemove([card_to_discard])})
-            discarded_card_name = POWER_CARDS[card_to_discard]['name']
-            effect_message = f"🌀 {user_name} glitched {target_name}'s hand, forcing them to discard a {discarded_card_name} card!"
+            disc = random.choice(target_cards)
+            target_cards.remove(disc)
+            update_player_data(target_id, {'cards': target_cards})
+            effect_message = f"🌀 {user_name} glitched {target_name}'s hand, forcing them to discard a {POWER_CARDS[disc]['name']} card!"
     elif card_id == 'swap':
-        user_cards = user_data.get('cards', [])
-        target_cards = target_data.get('cards', [])
-        user_cards_for_swap = [c for c in user_cards if c != 'swap']
-
-        if not user_cards_for_swap or not target_cards:
+        user_swaps = [c for c in user_cards if c != 'swap']
+        if not user_swaps or not target_cards:
             effect_message = f"🔄 {user_name} tried to swap cards with {target_name}, but the swap failed because one player had no cards to trade!"
         else:
-            card_from_user = random.choice(user_cards_for_swap)
-            card_from_target = random.choice(target_cards)
-
-            transaction.update(user_ref, {'cards': firestore.ArrayRemove([card_from_user])})
-            transaction.update(user_ref, {'cards': firestore.ArrayUnion([card_from_target])})
-            transaction.update(target_ref, {'cards': firestore.ArrayRemove([card_from_target])})
-            transaction.update(target_ref, {'cards': firestore.ArrayUnion([card_from_user])})
+            c_u = random.choice(user_swaps)
+            c_t = random.choice(target_cards)
+            user_cards.remove(c_u)
+            user_cards.append(c_t)
+            target_cards.remove(c_t)
+            target_cards.append(c_u)
+            update_player_data(target_id, {'cards': target_cards})
             effect_message = f"🔄 {user_name} used a Swap card on {target_name}! A random card was exchanged between them."
-    
+    elif card_id == 'steal':
+        stealable = [c for c in target_cards if c not in user_cards]
+        if not stealable:
+            effect_message = f"🥷 {user_name} tried to steal from {target_name}, but there were no cards they could take!"
+        else:
+            stolen = random.choice(stealable)
+            target_cards.remove(stolen)
+            user_cards.append(stolen)
+            update_player_data(target_id, {'cards': target_cards})
+            effect_message = f"🥷 {user_name} used Steal on {target_name} and took their {POWER_CARDS[stolen]['name']} card!"
     elif card_id == 'inflation':
-        one_hour_from_now = time.time() + (1 * 60 * 60)
-        # Use set with merge=True to create the document if it doesn't exist
-        transaction.set(game_state_ref, {
-            'inflation_until': one_hour_from_now,
-            'inflation_user_id': user_data['userId']
-        }, merge=True)
+        update_game_state({
+            'inflation_until': time.time() + (1 * 60 * 60),
+            'inflation_user_id': user_id
+        })
         effect_message = f"📈 {user_name} used Inflation! For the next 1 hour, card prices are doubled for everyone else."
-
     elif card_id == 'black_market':
-        one_hour_from_now = time.time() + (1 * 60 * 60)
-        transaction.update(user_ref, {'status.black_market_until': one_hour_from_now})
-        effect_message = f"💰 {user_name} used Black Market! For the next hour, all store prices are 50% off for you."
+        user_status['black_market_until'] = time.time() + (1 * 60)
+        effect_message = f"💰 {user_name} used Black Market! For the next minute, all store prices are 50% off for you."
+    elif card_id == 'purge':
+        if not card_args:
+            raise Exception("You must specify a card to purge. Usage: /use Purge <Card Name>")
+        p_name = " ".join(card_args)
+        p_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == p_name.lower()), None)
+        if not p_id:
+            raise Exception(f"The card '{p_name}' does not exist.")
+        if p_id in target_cards:
+            target_cards.remove(p_id)
+            update_player_data(target_id, {'cards': target_cards})
+            effect_message = f"🎯 {user_name} used Purge on {target_name} and successfully discarded their {POWER_CARDS[p_id]['name']} card!"
+        else:
+            effect_message = f"🎯 {user_name} used Purge on {target_name}, but they did not have a {POWER_CARDS[p_id]['name']} card."
+    elif card_id == 'amnesia':
+        update_player_data(target_id, {'cards': []})
+        effect_message = f"❓ {user_name} used Amnesia on {target_name}, forcing them to discard their entire hand!"
+    elif card_id == 'vortex':
+        special_action = "trigger_vortex"
+        effect_message = f"🌪️ {user_name} unleashed a Vortex!"
+    elif card_id == 'shackle':
+        target_status['shackled_until'] = time.time() + (1 * 60 * 60)
+        update_player_data(target_id, {'status': target_status})
+        effect_message = f"⛓️ {user_name} shackled {target_name}! They cannot use cards for 1 hour."
+    elif card_id == 'frenzy':
+        effect_message = f"🔀 {user_name} activated Frenzy! Your next two cards have no cooldown."
+    elif card_id == 'dispel':
+        game_state = get_game_state()
+        now = time.time()
+        removed = []
+        if user_status.get('shackled_until', 0) > now:
+            removed.append('Shackle')
+            user_status['shackled_until'] = 0
+        inflation_active = game_state.get('inflation_until', 0) > now
+        if inflation_active and user_id != game_state.get('inflation_user_id'):
+            removed.append('Inflation')
+            user_status['inflation_immunity_until'] = game_state.get('inflation_until', 0)
+        if not removed:
+            raise Exception("You are not affected by Shackle or Inflation.")
+        effect_message = f"💨 {user_name} used Dispel and removed the following effects: {', '.join(removed)}!"
+    elif card_id == 'lottery_ticket':
+        if random.random() < 0.02:
+            user_data['coins'] = user_data.get('coins', 0) + 100
+            effect_message = f"🎟️ Unbelievable! {user_name}'s Lottery Ticket was a winner! They won 100 coins!"
+        else:
+            effect_message = f"🎟️ {user_name} scratched their Lottery Ticket... but it wasn't a winner. Better luck next time!"
 
-    transaction.update(user_ref, {'cards': firestore.ArrayRemove([card_id])})
-    
-    return {'public': effect_message}
+    if card_id in user_cards:
+        user_cards.remove(card_id)
 
-async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE, user, card_id, target_user):
+    if card_id == 'frenzy':
+        user_status['frenzy_active'] = 2
+        user_status['last_card_use_time'] = time.time()
+    elif user_status.get('frenzy_active', 0) > 0:
+        user_status['frenzy_active'] = max(0, user_status['frenzy_active'] - 1)
+    else:
+        user_status['last_card_use_time'] = time.time()
+
+    update_player_data(user_id, {'coins': user_data.get('coins', 0), 'cards': user_cards, 'status': user_status})
+    return {'public': effect_message, 'action': special_action, 'data': user_data}
+
+
+async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE, user, card_id, target_user, card_args):
     """The core logic for what happens when a card is used."""
-    user_ref = get_player_ref(user.id)
-    target_ref = get_player_ref(target_user.id) if target_user else None
-    
     if not db:
         await update.message.reply_text("Database not available.")
         return
 
-    transaction = db.transaction()
-    game_state_ref = get_game_state_ref()
-    result = use_card_transaction(transaction, user_ref, target_ref, card_id, game_state_ref)
-    
+    user_data = get_player_data(user.id)
+    target_data = get_player_data(target_user.id) if target_user else None
+
+    if target_user and not target_data:
+        target_name = getattr(target_user, 'first_name', 'The target player')
+        await update.message.reply_text(f"Target player {target_name} is not registered in the game yet. They must use /start to join.")
+        return
+
+    result = process_use_card(user_data, target_data, card_id, card_args)
+
+    if result.get('action') == 'trigger_ricochet':
+        attacker_data = get_player_data(result['data']['attacker_id'])
+        original_target_data = get_player_data(result['data']['original_target_id'])
+        card_name = POWER_CARDS[result['data']['card_id']]['name']
+        
+        await update.message.reply_text(f"↪️ {original_target_data['first_name']}'s Ricochet redirected the {card_name} card from {attacker_data['first_name']}!")
+
+        all_players = get_all_players()
+        attacker_is_msgc = bool(attacker_data.get('msgc_registered', False)) if attacker_data else False
+        potential_targets = [
+            p for p in all_players
+            if p['user_id'] != result['data']['attacker_id']
+            and p['user_id'] != result['data']['original_target_id']
+            and bool(p.get('msgc_registered', False)) == attacker_is_msgc
+        ]
+
+        if not potential_targets:
+            await update.message.reply_text("...but there was no one else to redirect it to!")
+            return
+
+        new_target_data = random.choice(potential_targets)
+        redirect_result = process_use_card(attacker_data, new_target_data, result['data']['card_id'], result['data']['card_args'])
+
+        if 'public' in redirect_result and redirect_result['public']:
+            await update.message.reply_text(redirect_result['public'])
+        if 'private' in redirect_result and redirect_result['private']:
+            await context.bot.send_message(chat_id=result['data']['attacker_id'], text=redirect_result['private'])
+        await log_activity(update.get_bot(), redirect_result.get('public') or redirect_result.get('private'))
+        return
+
+    if result.get('action') == 'trigger_vortex':
+        if 'public' in result and result['public']:
+            await update.message.reply_text(result['public'])
+        
+        all_players = get_all_players()
+        attacker_is_msgc = bool(user_data.get('msgc_registered', False)) if user_data else False
+        discard_summary = ["The Vortex has struck!"]
+        
+        for p_data in all_players:
+            p_id = p_data['user_id']
+            p_name = p_data.get('first_name', 'A player')
+            p_status = p_data.get('status', {}) or {}
+            p_cards = list(p_data.get('cards', []))
+            p_is_msgc = bool(p_data.get('msgc_registered', False))
+
+            if p_is_msgc != attacker_is_msgc:
+                continue
+
+            if p_status.get('protected'):
+                p_status['protected'] = False
+                update_player_data(p_id, {'status': p_status})
+                discard_summary.append(f"🛡️ {p_name} was protected by a Forcefield!")
+            elif not p_cards:
+                discard_summary.append(f"💨 {p_name} had no cards to discard.")
+            else:
+                c_disc = random.choice(p_cards)
+                p_cards.remove(c_disc)
+                update_player_data(p_id, {'cards': p_cards})
+                c_name = POWER_CARDS.get(c_disc, {}).get('name', 'Unknown Card')
+                discard_summary.append(f"🌪️ {p_name} lost a {c_name} card.")
+
+        summary_message = "\n".join(discard_summary)
+        await update.message.reply_text(summary_message)
+        await log_activity(update.get_bot(), summary_message)
+        return
+
     if 'public' in result and result['public']:
         await update.message.reply_text(result['public'])
     if 'private' in result and result['private']:
@@ -612,45 +966,56 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         
     await log_activity(update.get_bot(), result.get('public') or result.get('private'))
 
+
+# --- DOUBLE OR NOTHING LOGIC ---
+
+async def handle_double_or_nothing_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE, attacker, target):
+    attacker_data = get_player_data(attacker.id)
+    target_data = get_player_data(target.id)
+    wager = 40
+
+    if not attacker_data or attacker_data.get('coins', 0) < wager:
+        await update.message.reply_text(f"You do not have enough coins to wager! You need {wager} PC.")
+        return
+    if not target_data or target_data.get('coins', 0) < wager:
+        await update.message.reply_text(f"{target.first_name} does not have enough coins for this wager! The card was not used.")
+        return
+
+    user_is_msgc = bool(attacker_data.get('msgc_registered', False)) if attacker_data else False
+    target_is_msgc = bool(target_data.get('msgc_registered', False)) if target_data else False
+
+    if user_is_msgc and not target_is_msgc:
+        await update.message.reply_text("❌ MSGC registered players can only challenge other MSGC registered players.")
+        return
+    elif not user_is_msgc and target_is_msgc:
+        await update.message.reply_text("❌ Non-MSGC players cannot challenge MSGC registered players.")
+        return
+
+    winner, loser = (attacker, target) if random.random() < 0.5 else (target, attacker)
+    winner_data = attacker_data if winner.id == attacker.id else target_data
+    loser_data = target_data if winner.id == attacker.id else attacker_data
+
+    update_player_data(winner.id, {'coins': winner_data.get('coins', 0) + wager})
+    update_player_data(loser.id, {'coins': max(0, loser_data.get('coins', 0) - wager)})
+
+    att_cards = list(attacker_data.get('cards', []))
+    if 'double_or_nothing' in att_cards:
+        att_cards.remove('double_or_nothing')
+    att_status = attacker_data.get('status', {}) or {}
+    att_status['last_card_use_time'] = time.time()
+    update_player_data(attacker.id, {'cards': att_cards, 'status': att_status})
+
+    message = (
+        f"🎲 **Double or Nothing!** 🎲\n\n"
+        f"{attacker.first_name} challenged {target.first_name}, betting {wager} coins each.\n\n"
+        f"The coin flip reveals **{winner.first_name}** as the winner!\n\n"
+        f"{winner.first_name} takes the entire pot of {wager * 2} coins from {loser.first_name}."
+    )
+    await update.message.reply_text(message)
+    await log_activity(context.bot, f"🎲 {attacker.first_name} used Double or Nothing on {target.first_name}. Winner: {winner.first_name}")
+
+
 # --- GOD CARD LOGIC ---
-
-@firestore.transactional
-def god_power_transaction(transaction, db_ref, user_ref, power, target_ref=None):
-    """Transactional logic for using a God card power."""
-    user_doc = user_ref.get(transaction=transaction)
-    user_data = user_doc.to_dict()
-    user_name = user_data.get('first_name', 'A player')
-    
-    effect_message = ""
-
-    if power == 'blessing':
-        if not target_ref: raise Exception("Blessing power requires a target.")
-        target_doc = target_ref.get(transaction=transaction)
-        if not target_doc.exists: raise Exception("Target player not found.")
-        target_name = target_doc.to_dict().get('first_name', 'another player')
-        
-        transaction.update(target_ref, {'cards': firestore.ArrayUnion(['forcefield'])})
-        effect_message = f"🛐 {user_name} used God's Blessing on {target_name}, granting them a Forcefield card!"
-
-    elif power == 'smite':
-        if not target_ref: raise Exception("Smite power requires a target.")
-        target_doc = target_ref.get(transaction=transaction)
-        if not target_doc.exists: raise Exception("Target player not found.")
-        target_name = target_doc.to_dict().get('first_name', 'another player')
-        target_coins = target_doc.to_dict().get('coins', 0)
-        coins_lost = target_coins // 2
-        
-        transaction.update(target_ref, {'coins': firestore.Increment(-coins_lost)})
-        effect_message = f"🛐 {user_name} used God's Smite on {target_name}, destroying half their coins ({coins_lost} PC)!"
-
-    elif power == 'tribute':
-        effect_message = f"🛐 {user_name} used God's Tribute, demanding 5 coins from all other players!"
-
-    else:
-        raise Exception("Invalid God power.")
-
-    transaction.update(user_ref, {'cards': firestore.ArrayRemove(['god'])})
-    return effect_message
 
 async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, user, args):
     """Handles the logic for using the God card's specific powers."""
@@ -664,56 +1029,67 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             return
         
         power = args[0].lower()
-        user_ref = get_player_ref(user.id)
-        target_ref = None
-        
+        user_data = get_player_data(user.id)
+        if not user_data: return
+
+        user_is_msgc = bool(user_data.get('msgc_registered', False))
+        target_data = None
+
         if power in ['blessing', 'smite']:
             if len(args) < 2:
                 await update.message.reply_text(f"The '{power}' power requires a target. Usage: /use God {power} @username")
                 return
             
             username = args[1].lstrip('@')
-            users_ref = db.collection(f'artifacts/{FIREBASE_APP_ID}/users')
-            query = users_ref.where('username', '==', username).limit(1)
-            results = query.stream()
-            target_doc = next(results, None)
-
-            if not target_doc:
+            target_data = get_player_by_username(username)
+            if not target_data:
                 await update.message.reply_text(f"Player @{username} not found.")
                 return
-            target_ref = target_doc.reference
 
-        if power == 'tribute':
-            users_ref = db.collection(f'artifacts/{FIREBASE_APP_ID}/users')
-            all_players = users_ref.stream()
+            target_is_msgc = bool(target_data.get('msgc_registered', False))
+            if user_is_msgc and not target_is_msgc:
+                await update.message.reply_text("❌ MSGC registered players can only target other MSGC registered players.")
+                return
+            elif not user_is_msgc and target_is_msgc:
+                await update.message.reply_text("❌ Non-MSGC players cannot target MSGC registered players.")
+                return
+
+        user_name = user_data.get('first_name', 'A player')
+        effect_message = ""
+
+        if power == 'blessing':
+            t_cards = list(target_data.get('cards', []))
+            t_cards.append('karma')
+            update_player_data(target_data['user_id'], {'cards': t_cards})
+            effect_message = f"🛐 {user_name} used God's Blessing on {target_data.get('first_name')}, granting them a Karma card!"
+
+        elif power == 'smite':
+            coins_lost = target_data.get('coins', 0) // 2
+            update_player_data(target_data['user_id'], {'coins': target_data.get('coins', 0) - coins_lost})
+            effect_message = f"🛐 {user_name} used God's Smite on {target_data.get('first_name')}, destroying half their coins ({coins_lost} PC)!"
+
+        elif power == 'tribute':
+            all_players = get_all_players()
             total_tribute = 0
-            other_player_refs = []
-
-            for player_doc in all_players:
-                if str(player_doc.id) != str(user.id):
-                    player_data = player_doc.to_dict()
-                    coins_to_pay = min(5, player_data.get('coins', 0))
-                    total_tribute += coins_to_pay
-                    other_player_refs.append(player_doc.reference)
+            for p in all_players:
+                p_is_msgc = bool(p.get('msgc_registered', False))
+                if p['user_id'] != user.id and p_is_msgc == user_is_msgc:
+                    c_pay = min(5, p.get('coins', 0))
+                    total_tribute += c_pay
+                    update_player_data(p['user_id'], {'coins': p.get('coins', 0) - c_pay})
             
-            @firestore.transactional
-            def tribute_transaction(transaction):
-                for player_ref in other_player_refs:
-                    transaction.update(player_ref, {'coins': firestore.Increment(-5)})
-                transaction.update(user_ref, {'coins': firestore.Increment(total_tribute)})
-            
-            transaction = db.transaction()
-            tribute_transaction(transaction)
-            result_message = f"🛐 {user.first_name} used God's Tribute, collecting a total of {total_tribute} coins from all other players!"
-            await update.message.reply_text(result_message)
-            await log_activity(context.bot, result_message)
-            user_ref.update({'cards': firestore.ArrayRemove(['god'])})
+            user_data['coins'] = user_data.get('coins', 0) + total_tribute
+            effect_message = f"🛐 {user_name} used God's Tribute, collecting a total of {total_tribute} coins from all other players!"
+        else:
+            await update.message.reply_text("Invalid God power. Choose Blessing, Smite, or Tribute.")
             return
 
-        transaction = db.transaction()
-        result_message = god_power_transaction(transaction, db, user_ref, power, target_ref)
-        await update.message.reply_text(result_message)
-        await log_activity(context.bot, result_message)
+        u_cards = list(user_data.get('cards', []))
+        if 'god' in u_cards: u_cards.remove('god')
+        update_player_data(user.id, {'coins': user_data.get('coins', 0), 'cards': u_cards})
+
+        await update.message.reply_text(effect_message)
+        await log_activity(context.bot, effect_message)
 
     except Exception as e:
         logger.error(f"Error executing God power: {e}")
@@ -733,33 +1109,24 @@ async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     try:
-        users_ref = db.collection(f'artifacts/{FIREBASE_APP_ID}/users')
-        all_user_docs = users_ref.stream()
-
-        report_lines = ["📊 *All Players Report*\n"]
-        player_found = False
-
-        for user_doc in all_user_docs:
-            player_found = True
-            player_data = user_doc.to_dict()
-
-            if player_data:
-                username = player_data.get('username', f"ID: {user_doc.id}")
-                safe_username = escape_markdown_v2(username)
-                
-                coins = player_data.get('coins', 0)
-                cards_list = [POWER_CARDS[card_id]['name'] for card_id in player_data.get('cards', []) if card_id in POWER_CARDS]
-                cards_str = escape_markdown_v2(", ".join(cards_list) if cards_list else "None")
-                
-                report_lines.append(
-                    f"\n👤 *@{safe_username}*\n"
-                    f"   💰 Coins: {coins} PC\n"
-                    f"   🎴 Cards: {cards_str}"
-                )
-
-        if not player_found:
+        all_players = get_all_players()
+        if not all_players:
             await update.message.reply_text("No players have registered yet.")
             return
+
+        report_lines = ["📊 *All Players Report*\n"]
+        for p in all_players:
+            username = p.get('username') or f"ID: {p.get('user_id')}"
+            safe_username = escape_markdown_v2(username)
+            coins = p.get('coins', 0)
+            cards_list = [POWER_CARDS[cid]['name'] for cid in p.get('cards', []) if cid in POWER_CARDS]
+            cards_str = escape_markdown_v2(", ".join(cards_list) if cards_list else "None")
+            
+            report_lines.append(
+                f"\n👤 *@{safe_username}*\n"
+                f"    💰 Coins: {coins} PC\n"
+                f"    🎴 Cards: {cards_str}"
+            )
 
         report = "\n".join(report_lines)
         await update.message.reply_text(report, parse_mode='MarkdownV2')
@@ -783,18 +1150,13 @@ async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         amount = int(amount_str)
         username = username.lstrip('@')
 
-        users_ref = db.collection(f'artifacts/{FIREBASE_APP_ID}/users')
-        query = users_ref.where('username', '==', username).limit(1)
-        results = query.stream()
-        
-        target_doc = next(results, None)
-
-        if not target_doc:
+        target_data = get_player_by_username(username)
+        if not target_data:
             await update.message.reply_text(f"Player @{username} not found in the database. They must use /start first.")
             return
 
-        target_ref = target_doc.reference
-        target_ref.update({'coins': firestore.Increment(amount)})
+        new_coins = target_data.get('coins', 0) + amount
+        update_player_data(target_data['user_id'], {'coins': new_coins})
         
         await update.message.reply_text(f"✅ Successfully awarded {amount} PC to @{username}.")
         await log_activity(context.bot, f"👑 Admin awarded {amount} PC to @{username}.")
@@ -804,6 +1166,38 @@ async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     except Exception as e:
         logger.error(f"Error in /award command: {e}")
         await update.message.reply_text("An error occurred while awarding coins.")
+
+async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to award coins to all players."""
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    if not db:
+        await update.message.reply_text("Database not available.")
+        return
+
+    try:
+        amount_str = context.args[0]
+        amount = int(amount_str)
+        if amount <= 0:
+            await update.message.reply_text("Please provide a positive amount.")
+            return
+    except (ValueError, IndexError):
+        await update.message.reply_text("Usage: /awardall <amount>")
+        return
+
+    try:
+        all_players = get_all_players()
+        for p in all_players:
+            update_player_data(p['user_id'], {'coins': p.get('coins', 0) + amount})
+        
+        await update.message.reply_text(f"✅ Successfully awarded {amount} PC to all {len(all_players)} players.")
+        await log_activity(context.bot, f"👑 Admin awarded {amount} PC to all {len(all_players)} players.")
+
+    except Exception as e:
+        logger.error(f"Error in /awardall command: {e}")
+        await update.message.reply_text("An error occurred while awarding coins to all players.")
 
 async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to give a card to a player."""
@@ -824,18 +1218,14 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await update.message.reply_text(f"Card '{card_name_query}' not found.")
             return
 
-        users_ref = db.collection(f'artifacts/{FIREBASE_APP_ID}/users')
-        query = users_ref.where('username', '==', username).limit(1)
-        results = query.stream()
-        
-        target_doc = next(results, None)
-
-        if not target_doc:
+        target_data = get_player_by_username(username)
+        if not target_data:
             await update.message.reply_text(f"Player @{username} not found in the database. They must use /start first.")
             return
             
-        target_ref = target_doc.reference
-        target_ref.update({'cards': firestore.ArrayUnion([card_id])})
+        c_list = list(target_data.get('cards', []))
+        c_list.append(card_id)
+        update_player_data(target_data['user_id'], {'cards': c_list})
         card_name = POWER_CARDS[card_id]['name']
         
         await update.message.reply_text(f"✅ Successfully gave a {card_name} card to @{username}.")
@@ -848,40 +1238,70 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text("An error occurred while giving the card.")
 
 
-def main() -> None:
-    """Start the bot."""
-    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN":
-        logger.error("FATAL: TELEGRAM_BOT_TOKEN is not configured. Please set it in config.py.")
-        return
-        
-    if not db:
-        logger.error("FATAL: Firebase is not initialized. The bot cannot start.")
-        return
+async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Global error handler to handle errors gracefully and avoid raw Markdown entity parse crashes."""
+    logger.error("Exception while handling an update:", exc_info=context.error)
+    err_str = str(context.error) if context.error else "Unknown error"
+    if "can't parse entities" in err_str.lower() or "bad request" in err_str.lower():
+        logger.warning("Captured unhandled Markdown entity parse error. Handled gracefully.")
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text("Formatting error occurred, but action processed.")
+            except Exception:
+                pass
+    else:
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(f"❌ An error occurred: {err_str}")
+            except Exception:
+                pass
 
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+# --- APPLICATION SETUP ---
 
-    # Command handlers
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("profile", profile_command))
-    application.add_handler(CommandHandler("store", store_command))
-    application.add_handler(CommandHandler("use", use_command))
-    
-    # Admin command handlers
-    application.add_handler(CommandHandler("award", award_command))
-    application.add_handler(CommandHandler("givecard", givecard_command))
-    application.add_handler(CommandHandler("allplayers", all_players_command))
+request_obj = HTTPXRequest(
+    connect_timeout=20.0,
+    read_timeout=20.0,
+    write_timeout=20.0,
+    pool_timeout=20.0
+)
+application = Application.builder().token(TELEGRAM_BOT_TOKEN).request(request_obj).build()
 
-    # Callback query handlers for the interactive store
-    application.add_handler(CallbackQueryHandler(handle_inspect_callback, pattern="^inspect_"))
-    application.add_handler(CallbackQueryHandler(handle_back_to_store_callback, pattern="^back_to_store$"))
-    application.add_handler(CallbackQueryHandler(handle_buy_callback, pattern="^buy_"))
+application.add_handler(CommandHandler("start", start_command))
+application.add_handler(CommandHandler("help", help_command))
+application.add_handler(CommandHandler("profile", profile_command))
+application.add_handler(CommandHandler("store", store_command))
+application.add_handler(CommandHandler("use", use_command))
+application.add_handler(CommandHandler("award", award_command))
+application.add_handler(CommandHandler("awardall", awardall_command))
+application.add_handler(CommandHandler("givecard", givecard_command))
+application.add_handler(CommandHandler("allplayers", all_players_command))
+application.add_handler(CallbackQueryHandler(handle_inspect_callback, pattern="^inspect_"))
+application.add_handler(CallbackQueryHandler(handle_back_to_store_callback, pattern="^back_to_store$"))
+application.add_handler(CallbackQueryHandler(handle_buy_callback, pattern="^buy_"))
+application.add_error_handler(global_error_handler)
 
-    # Run the bot until the user presses Ctrl-C
-    logger.info("Bot is starting...")
-    application.run_polling()
-    logger.info("Bot has stopped.")
+app = Flask(__name__)
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """Webhook endpoint to process updates."""
+    async def handle_update():
+        await application.initialize()
+        update = Update.de_json(request.get_json(force=True), application.bot)
+        await application.process_update(update)
+        await application.shutdown()
+
+    asyncio.run(handle_update())
+    return 'ok'
+
+@app.route('/')
+def index():
+    return 'Bot is running!'
 
 if __name__ == "__main__":
-
-    main()
+    mode = os.environ.get("RUN_MODE", "polling").lower()
+    if mode == "webhook":
+        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    else:
+        logger.info("Starting bot in polling mode...")
+        application.run_polling()
