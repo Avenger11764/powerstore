@@ -160,17 +160,35 @@ def get_player_by_username(username: str) -> dict:
         return None
 
 def get_all_players() -> list:
-    """Retrieves all players from Supabase."""
+    """Retrieves all players from Supabase with fallbacks for RLS policies."""
     if not db: return []
     try:
-        response = db.table('users').select('*').execute()
-        rows = response.data if response and response.data else []
+        rows = []
+        # Attempt 1: Direct limit query
+        try:
+            res = db.table('users').select('*').limit(5000).execute()
+            if res and hasattr(res, 'data') and res.data:
+                rows = res.data
+        except Exception as e1:
+            logger.warning(f"Select * limit query failed: {e1}")
+
+        # Attempt 2: Filter by non-empty telegram_id (bypasses default RLS empty result)
         if not rows:
             try:
-                response = db.table('users').select('telegram_id, user_id, username, first_name, coins, cards, status, msgc_registered').execute()
-                rows = response.data if response and response.data else []
-            except Exception as e_retry:
-                logger.warning(f"Retry select failed: {e_retry}")
+                res = db.table('users').select('*').neq('telegram_id', '').limit(5000).execute()
+                if res and hasattr(res, 'data') and res.data:
+                    rows = res.data
+            except Exception as e2:
+                logger.warning(f"neq telegram_id query failed: {e2}")
+
+        # Attempt 3: Filter by non-null telegram_id
+        if not rows:
+            try:
+                res = db.table('users').select('*').not_.is_('telegram_id', 'null').limit(5000).execute()
+                if res and hasattr(res, 'data') and res.data:
+                    rows = res.data
+            except Exception as e3:
+                logger.warning(f"not null telegram_id query failed: {e3}")
 
         players = []
         for data in rows:
