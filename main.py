@@ -124,16 +124,14 @@ def get_player_data(user_id: int) -> dict:
     try:
         response = db.table('users').select('*').eq('telegram_id', str(user_id)).execute()
         if not response.data or len(response.data) == 0:
-            response = db.table('users').select('*').eq('telegram_id', user_id).execute()
+            response = db.table('users').select('*').eq('telegram_id', int(user_id)).execute()
 
         if response.data and len(response.data) > 0:
             data = response.data[0]
             tid = data.get('telegram_id') or user_id
             data['user_id'] = int(tid)
-            if not data.get('status') or not isinstance(data.get('status'), dict):
-                data['status'] = {}
-            if not data.get('cards') or not isinstance(data.get('cards'), list):
-                data['cards'] = []
+            data['status'] = parse_json_dict(data.get('status'))
+            data['cards'] = parse_json_list(data.get('cards'))
             return data
         return None
     except Exception as e:
@@ -149,10 +147,8 @@ def get_player_by_username(username: str) -> dict:
             data = response.data[0]
             tid = data.get('telegram_id') or data.get('user_id')
             if tid: data['user_id'] = int(tid)
-            if not data.get('status') or not isinstance(data.get('status'), dict):
-                data['status'] = {}
-            if not data.get('cards') or not isinstance(data.get('cards'), list):
-                data['cards'] = []
+            data['status'] = parse_json_dict(data.get('status'))
+            data['cards'] = parse_json_list(data.get('cards'))
             return data
         return None
     except Exception as e:
@@ -168,10 +164,8 @@ def get_all_players() -> list:
         for data in (response.data or []):
             tid = data.get('telegram_id') or data.get('user_id')
             if tid: data['user_id'] = int(tid)
-            if not data.get('status') or not isinstance(data.get('status'), dict):
-                data['status'] = {}
-            if not data.get('cards') or not isinstance(data.get('cards'), list):
-                data['cards'] = []
+            data['status'] = parse_json_dict(data.get('status'))
+            data['cards'] = parse_json_list(data.get('cards'))
             players.append(data)
         return players
     except Exception as e:
