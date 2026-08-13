@@ -1287,16 +1287,25 @@ async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         new_coins = target_data.get('coins', 0) + amount
         update_player_data(target_data['user_id'], {'coins': new_coins})
         
+        award_gif_url = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnp4amQzMGRvcTk1YWRtNXk3d2NpeHd4eGxidGh5ZWltMnhldDdkMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/MkvZFvzHIWbRK/giphy.gif"
+        reply_msg = f"✅ Successfully awarded {amount} PC to @{username}."
+
         # Send DM notification to the player
         try:
-            await context.bot.send_message(
+            await context.bot.send_animation(
                 chat_id=target_data['user_id'],
-                text=f"🎁 You have received {amount} Power Coins from the Admin!"
+                animation=award_gif_url,
+                caption=f"🎁 You have received {amount} Power Coins from the Admin!"
             )
         except Exception as e:
             logger.warning(f"Could not send DM to user {target_data['user_id']}: {e}")
 
-        await update.message.reply_text(f"✅ Successfully awarded {amount} PC to @{username}.")
+        try:
+            await update.message.reply_animation(animation=award_gif_url, caption=reply_msg)
+        except Exception as e:
+            logger.warning(f"Could not send award GIF animation: {e}")
+            await update.message.reply_text(reply_msg)
+
         await log_activity(context.bot, f"👑 Admin awarded {amount} PC to @{username}.")
 
     except (ValueError, IndexError):
