@@ -20,6 +20,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or getattr(config, "TE
 ADMIN_USER_ID_VAL = os.environ.get("ADMIN_USER_ID") or getattr(config, "ADMIN_USER_ID", None)
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or getattr(config, "SUPABASE_URL", None)
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or getattr(config, "SUPABASE_KEY", None)
+LOG_CHANNEL_ID = os.environ.get("LOG_CHANNEL_ID") or getattr(config, "LOG_CHANNEL_ID", None)
 
 if not TELEGRAM_BOT_TOKEN or not ADMIN_USER_ID_VAL:
     raise ValueError("Missing required environment variables or config settings: TELEGRAM_BOT_TOKEN, ADMIN_USER_ID")
@@ -256,9 +257,15 @@ def update_game_state(updates: dict):
     except Exception as e:
         logger.error(f"Error updating game state: {e}")
 
-async def log_activity(bot: Bot, message: str):
-    """Logs an activity message."""
+async def log_activity(bot: Bot, message: str, title: str = "Power Store Logs"):
+    """Logs an activity message to python logger and Telegram channel if configured."""
     logger.info(f"ACTIVITY: {message}")
+    if LOG_CHANNEL_ID and bot:
+        try:
+            formatted_text = f"<b>{title}</b>\n{message}"
+            await bot.send_message(chat_id=LOG_CHANNEL_ID, text=formatted_text, parse_mode='HTML')
+        except Exception as e:
+            logger.error(f"Failed to send activity log to channel {LOG_CHANNEL_ID}: {e}")
 
 
 # --- COMMAND HANDLERS ---
