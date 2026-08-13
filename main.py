@@ -662,6 +662,14 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
     target_status = target_data.get('status', {}) if target_data else {}
     target_cards = list(target_data.get('cards', [])) if target_data else []
 
+    if target_data:
+        user_is_msgc = bool(user_data.get('msgc_registered', False))
+        target_is_msgc = bool(target_data.get('msgc_registered', False))
+        if user_is_msgc and not target_is_msgc:
+            return {'public': "❌ MSGC registered players can only use cards on other MSGC registered players."}
+        elif not user_is_msgc and target_is_msgc:
+            return {'public': "❌ Non-MSGC players cannot use cards on MSGC registered players."}
+
     if card_id in NEGATIVE_CARDS and target_data:
         if target_status.get('trap_active'):
             target_status['trap_active'] = False
