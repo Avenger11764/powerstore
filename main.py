@@ -88,8 +88,38 @@ POWER_CARDS = {
 
 NEGATIVE_CARDS = {'flame', 'glitch', 'devil', 'swap', 'spotlight', 'purge', 'amnesia', 'shackle', 'steal', 'double_or_nothing'}
 
+import json
+import ast
 
-# --- HELPER FUNCTIONS ---
+def parse_json_dict(val) -> dict:
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, str) and val.strip():
+        try:
+            res = json.loads(val)
+            if isinstance(res, dict): return res
+        except Exception:
+            try:
+                res = ast.literal_eval(val)
+                if isinstance(res, dict): return res
+            except Exception:
+                pass
+    return {}
+
+def parse_json_list(val) -> list:
+    if isinstance(val, list):
+        return val
+    if isinstance(val, str) and val.strip():
+        try:
+            res = json.loads(val)
+            if isinstance(res, list): return res
+        except Exception:
+            try:
+                res = ast.literal_eval(val)
+                if isinstance(res, list): return res
+            except Exception:
+                pass
+    return []
 
 def escape_markdown_v2(text) -> str:
     """Escapes characters for Telegram's MarkdownV2 parse mode."""
