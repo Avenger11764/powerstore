@@ -944,6 +944,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     card = POWER_CARDS.get(card_id, {})
     user_data = get_player_data(user.id)
+    user_name = user_data.get('first_name', user.first_name or 'A player') if user_data else getattr(user, 'first_name', 'A player')
     target_data = get_player_data(target_user.id) if target_user else None
 
     if target_user and not target_data:
