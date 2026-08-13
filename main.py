@@ -534,10 +534,6 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles the /use command."""
-    if update.message.chat.type == 'private':
-        await update.message.reply_text("You can only use cards in the main group chat.")
-        return
-
     user = update.effective_user
     args = context.args
     
