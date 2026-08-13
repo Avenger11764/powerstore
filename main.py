@@ -198,7 +198,9 @@ def update_player_data(user_id: int, updates: dict):
     try:
         payload = {**updates}
         payload.pop('user_id', None)
-        db.table('users').update(payload).eq('telegram_id', str(user_id)).execute()
+        res = db.table('users').update(payload).eq('telegram_id', str(user_id)).execute()
+        if not res.data or len(res.data) == 0:
+            db.table('users').update(payload).eq('telegram_id', int(user_id)).execute()
     except Exception as e:
         logger.error(f"Error updating player data for {user_id}: {e}")
 
@@ -1173,9 +1175,21 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             effect_message = f"🛐 {user_name} used God's Blessing on {target_data.get('first_name')}, granting them a Karma card!"
 
         elif power == 'smite':
-            coins_lost = target_data.get('coins', 0) // 2
-            update_player_data(target_data['user_id'], {'coins': target_data.get('coins', 0) - coins_lost})
-            effect_message = f"🛐 {user_name} used God's Smite on {target_data.get('first_name')}, destroying half their coins ({coins_lost} PC)!"
+            target_status = target_data.get('status', {}) or {}
+            if target_status.get('trap_active'):
+                target_status['trap_active'] = False
+                user_coins = max(0, user_data.get('coins', 0) - 15)
+                update_player_data(target_data['user_id'], {'status': target_status})
+                update_player_data(user.id, {'coins': user_coins})
+                effect_message = f"🪤 Sprung! {target_data.get('first_name')}'s Trap nullified God's Smite and made {user_name} lose 15 coins!"
+            elif target_status.get('protected'):
+                target_status['protected'] = False
+                update_player_data(target_data['user_id'], {'status': target_status})
+                effect_message = f"🛡️ Blocked! {target_data.get('first_name')}'s Forcefield deflected God's Smite!"
+            else:
+                coins_lost = target_data.get('coins', 0) // 2
+                update_player_data(target_data['user_id'], {'coins': target_data.get('coins', 0) - coins_lost})
+                effect_message = f"🛐 {user_name} used God's Smite on {target_data.get('first_name')}, destroying half their coins ({coins_lost} PC)!"
 
         elif power == 'tribute':
             all_players = get_all_players()
