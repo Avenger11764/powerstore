@@ -118,21 +118,16 @@ async def send_safe_message(target_obj, text: str, reply_markup=None, parse_mode
             logger.error(f"Failed to send fallback plain text message: {e2}")
 
 def get_player_data(user_id: int) -> dict:
-    """Retrieves player data from Supabase using telegram_id or user_id."""
+    """Retrieves player data from Supabase using telegram_id."""
     if not db: return None
     try:
         response = db.table('users').select('*').eq('telegram_id', str(user_id)).execute()
         if not response.data or len(response.data) == 0:
             response = db.table('users').select('*').eq('telegram_id', user_id).execute()
-        if not response.data or len(response.data) == 0:
-            try:
-                response = db.table('users').select('*').eq('user_id', user_id).execute()
-            except Exception:
-                pass
 
         if response.data and len(response.data) > 0:
             data = response.data[0]
-            tid = data.get('telegram_id') or data.get('user_id') or user_id
+            tid = data.get('telegram_id') or user_id
             data['user_id'] = int(tid)
             if not data.get('status') or not isinstance(data.get('status'), dict):
                 data['status'] = {}
@@ -187,6 +182,7 @@ def save_player_data(user_id: int, player_data: dict):
     if not db: return
     try:
         payload = {'telegram_id': str(user_id), **player_data}
+        payload.pop('user_id', None)
         if not payload.get('in_game_name'):
             payload['in_game_name'] = player_data.get('first_name') or player_data.get('username') or f"Player_{user_id}"
         if not payload.get('first_name'):
@@ -199,7 +195,9 @@ def update_player_data(user_id: int, updates: dict):
     """Updates specific fields of a player profile in Supabase."""
     if not db: return
     try:
-        db.table('users').update(updates).eq('telegram_id', str(user_id)).execute()
+        payload = {**updates}
+        payload.pop('user_id', None)
+        db.table('users').update(payload).eq('telegram_id', str(user_id)).execute()
     except Exception as e:
         logger.error(f"Error updating player data for {user_id}: {e}")
 
