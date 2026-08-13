@@ -164,13 +164,26 @@ def get_all_players() -> list:
     if not db: return []
     try:
         response = db.table('users').select('*').execute()
+        rows = response.data if response and response.data else []
+        if not rows:
+            try:
+                response = db.table('users').select('telegram_id, user_id, username, first_name, coins, cards, status, msgc_registered').execute()
+                rows = response.data if response and response.data else []
+            except Exception as e_retry:
+                logger.warning(f"Retry select failed: {e_retry}")
+
         players = []
-        for data in (response.data or []):
-            tid = data.get('telegram_id') or data.get('user_id')
-            if tid: data['user_id'] = int(tid)
+        for data in rows:
+            tid = data.get('telegram_id') or data.get('user_id') or data.get('id')
+            if tid is not None:
+                try:
+                    data['user_id'] = int(tid)
+                except (ValueError, TypeError):
+                    data['user_id'] = tid
             data['status'] = parse_json_dict(data.get('status'))
             data['cards'] = parse_json_list(data.get('cards'))
             players.append(data)
+        logger.info(f"get_all_players fetched {len(players)} players.")
         return players
     except Exception as e:
         logger.error(f"Error fetching all players: {e}")
