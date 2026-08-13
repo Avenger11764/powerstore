@@ -118,21 +118,32 @@ async def send_safe_message(target_obj, text: str, reply_markup=None, parse_mode
         except Exception as e2:
             logger.error(f"Failed to send fallback plain text message: {e2}")
 
+def extract_telegram_id(data: dict):
+    if not isinstance(data, dict): return None
+    for key in ['Telegram_id', 'telegram_id', 'user_id', 'id', 'Telegram_Id']:
+        if key in data and data[key] is not None:
+            return data[key]
+    return None
+
 def get_player_data(user_id: int) -> dict:
-    """Retrieves player data from Supabase using telegram_id or user_id."""
+    """Retrieves player data from Supabase using Telegram_id, telegram_id or user_id."""
     if not db: return None
     try:
-        response = db.table('users').select('*').eq('telegram_id', str(user_id)).execute()
-        if not response.data or len(response.data) == 0:
-            response = db.table('users').select('*').eq('telegram_id', int(user_id)).execute()
-        if not response.data or len(response.data) == 0:
-            response = db.table('users').select('*').eq('user_id', int(user_id)).execute()
-        if not response.data or len(response.data) == 0:
-            response = db.table('users').select('*').eq('user_id', str(user_id)).execute()
+        response = None
+        for col in ['Telegram_id', 'telegram_id', 'user_id']:
+            for val in [str(user_id), int(user_id)]:
+                try:
+                    res = db.table('users').select('*').eq(col, val).execute()
+                    if res and res.data and len(res.data) > 0:
+                        response = res
+                        break
+                except Exception:
+                    pass
+            if response: break
 
-        if response.data and len(response.data) > 0:
+        if response and response.data and len(response.data) > 0:
             data = response.data[0]
-            tid = data.get('telegram_id') or data.get('user_id') or user_id
+            tid = extract_telegram_id(data) or user_id
             data['user_id'] = int(tid)
             data['status'] = parse_json_dict(data.get('status'))
             data['cards'] = parse_json_list(data.get('cards'))
@@ -149,7 +160,7 @@ def get_player_by_username(username: str) -> dict:
         response = db.table('users').select('*').ilike('username', username).execute()
         if response.data and len(response.data) > 0:
             data = response.data[0]
-            tid = data.get('telegram_id') or data.get('user_id')
+            tid = extract_telegram_id(data)
             if tid: data['user_id'] = int(tid)
             data['status'] = parse_json_dict(data.get('status'))
             data['cards'] = parse_json_list(data.get('cards'))
@@ -171,7 +182,7 @@ def get_all_players() -> list:
         if not rows:
             logger.warning(f"get_all_players: select * returned empty data. Response: {response}")
             try:
-                res2 = db.table('users').select('telegram_id, username, first_name, coins, cards, status, msgc_registered').execute()
+                res2 = db.table('users').select('Telegram_id, telegram_id, username, first_name, coins, cards, status, msgc_registered').execute()
                 if res2 and hasattr(res2, 'data') and res2.data:
                     rows = res2.data
             except Exception as e2:
@@ -179,7 +190,7 @@ def get_all_players() -> list:
 
         players = []
         for data in rows:
-            tid = data.get('telegram_id') or data.get('user_id') or data.get('id')
+            tid = extract_telegram_id(data)
             if tid is not None:
                 try:
                     data['user_id'] = int(tid)
@@ -198,17 +209,18 @@ def save_player_data(user_id: int, player_data: dict):
     """Upserts full player profile into Supabase."""
     if not db: return
     try:
-        payload = {'telegram_id': str(user_id), **player_data}
+        payload = {'Telegram_id': str(user_id), 'telegram_id': str(user_id), **player_data}
         payload.pop('user_id', None)
         if not payload.get('in_game_name'):
             payload['in_game_name'] = player_data.get('first_name') or player_data.get('username') or f"Player_{user_id}"
         if not payload.get('first_name'):
             payload['first_name'] = player_data.get('in_game_name') or player_data.get('username') or "Player"
-        try:
-            db.table('users').upsert(payload, on_conflict='telegram_id').execute()
-        except Exception:
-            payload['telegram_id'] = int(user_id)
-            db.table('users').upsert(payload, on_conflict='telegram_id').execute()
+        for col in ['Telegram_id', 'telegram_id']:
+            try:
+                db.table('users').upsert(payload, on_conflict=col).execute()
+                break
+            except Exception:
+                pass
     except Exception as e:
         logger.error(f"Error saving player data for {user_id}: {e}")
 
@@ -218,13 +230,14 @@ def update_player_data(user_id: int, updates: dict):
     try:
         payload = {**updates}
         payload.pop('user_id', None)
-        res = db.table('users').update(payload).eq('telegram_id', str(user_id)).execute()
-        if not res.data or len(res.data) == 0:
-            res = db.table('users').update(payload).eq('telegram_id', int(user_id)).execute()
-        if not res.data or len(res.data) == 0:
-            res = db.table('users').update(payload).eq('user_id', int(user_id)).execute()
-        if not res.data or len(res.data) == 0:
-            res = db.table('users').update(payload).eq('user_id', str(user_id)).execute()
+        for col in ['Telegram_id', 'telegram_id', 'user_id']:
+            for val in [str(user_id), int(user_id)]:
+                try:
+                    res = db.table('users').update(payload).eq(col, val).execute()
+                    if res and res.data and len(res.data) > 0:
+                        return
+                except Exception:
+                    pass
     except Exception as e:
         logger.error(f"Error updating player data for {user_id}: {e}")
 
