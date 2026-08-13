@@ -1056,6 +1056,10 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
 # --- DOUBLE OR NOTHING LOGIC ---
 
 async def handle_double_or_nothing_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE, attacker, target):
+    if update.message and update.message.chat.type == 'private':
+        await update.message.reply_text("❌ Double or Nothing can only be used in group chats!")
+        return
+
     attacker_data = get_player_data(attacker.id)
     target_data = get_player_data(target.id)
     wager = 40
@@ -1120,6 +1124,10 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
 
 async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, user, args):
     """Handles the logic for using the God card's specific powers."""
+    if update.message and update.message.chat.type == 'private':
+        await update.message.reply_text("❌ God powers can only be used in group chats!")
+        return
+
     if not db:
         await update.message.reply_text("Database not available.")
         return
