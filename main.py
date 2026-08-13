@@ -970,6 +970,14 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(redirect_result['public'])
         if 'private' in redirect_result and redirect_result['private']:
             await context.bot.send_message(chat_id=result['data']['attacker_id'], text=redirect_result['private'])
+
+        if new_target_data and new_target_data.get('user_id') and new_target_data['user_id'] != result['data']['attacker_id']:
+            try:
+                redirect_dm = f"↪️ A {card_name} card was redirected onto you!\n\nEffect: {redirect_result.get('public', '')}"
+                await context.bot.send_message(chat_id=new_target_data['user_id'], text=redirect_dm)
+            except Exception as e:
+                logger.warning(f"Could not send DM to redirected target {new_target_data['user_id']}: {e}")
+
         await log_activity(update.get_bot(), redirect_result.get('public') or redirect_result.get('private'))
         return
 
@@ -1013,6 +1021,13 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(result['public'])
     if 'private' in result and result['private']:
         await context.bot.send_message(chat_id=user.id, text=result['private'])
+
+    if target_user and getattr(target_user, 'id', None) and target_user.id != user.id and result.get('public'):
+        try:
+            target_dm_text = f"⚠️ {user.first_name} (@{user.username or 'user'}) used a {card['name']} card on you!\n\nEffect: {result['public']}"
+            await context.bot.send_message(chat_id=target_user.id, text=target_dm_text)
+        except Exception as e:
+            logger.warning(f"Could not send DM to target user {target_user.id}: {e}")
         
     await log_activity(update.get_bot(), result.get('public') or result.get('private'))
 
@@ -1062,6 +1077,13 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
         f"{winner.first_name} takes the entire pot of {wager * 2} coins from {loser.first_name}."
     )
     await update.message.reply_text(message)
+
+    try:
+        target_dm_text = f"🎲 {attacker.first_name} (@{attacker.username or 'user'}) used Double or Nothing on you!\n\nWinner: {winner.first_name}\nPot won: {wager * 2} Power Coins"
+        await context.bot.send_message(chat_id=target.id, text=target_dm_text)
+    except Exception as e:
+        logger.warning(f"Could not send DM to target {target.id}: {e}")
+
     await log_activity(context.bot, f"🎲 {attacker.first_name} used Double or Nothing on {target.first_name}. Winner: {winner.first_name}")
 
 
@@ -1139,6 +1161,16 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         update_player_data(user.id, {'coins': user_data.get('coins', 0), 'cards': u_cards})
 
         await update.message.reply_text(effect_message)
+        
+        if target_data and target_data.get('user_id') and target_data['user_id'] != user.id:
+            try:
+                await context.bot.send_message(
+                    chat_id=target_data['user_id'],
+                    text=f"🛐 {user_name} (@{user.username or 'user'}) used God's {power.capitalize()} on you!\n\nEffect: {effect_message}"
+                )
+            except Exception as e:
+                logger.warning(f"Could not send DM to target {target_data['user_id']}: {e}")
+
         await log_activity(context.bot, effect_message)
 
     except Exception as e:
