@@ -933,6 +933,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("Database not available.")
         return
 
+    card = POWER_CARDS.get(card_id, {})
     user_data = get_player_data(user.id)
     target_data = get_player_data(target_user.id) if target_user else None
 
