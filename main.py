@@ -187,6 +187,10 @@ def save_player_data(user_id: int, player_data: dict):
     if not db: return
     try:
         payload = {'telegram_id': str(user_id), **player_data}
+        if not payload.get('in_game_name'):
+            payload['in_game_name'] = player_data.get('first_name') or player_data.get('username') or f"Player_{user_id}"
+        if not payload.get('first_name'):
+            payload['first_name'] = player_data.get('in_game_name') or player_data.get('username') or "Player"
         db.table('users').upsert(payload, on_conflict='telegram_id').execute()
     except Exception as e:
         logger.error(f"Error saving player data for {user_id}: {e}")
@@ -198,6 +202,40 @@ def update_player_data(user_id: int, updates: dict):
         db.table('users').update(updates).eq('telegram_id', str(user_id)).execute()
     except Exception as e:
         logger.error(f"Error updating player data for {user_id}: {e}")
+
+def ensure_player_registered(user_id: int, telegram_user=None) -> dict:
+    """Ensures player is registered in Supabase. Auto-registers if missing."""
+    player_data = get_player_data(user_id)
+    if not player_data:
+        username = getattr(telegram_user, 'username', None) or f"user_{user_id}"
+        first_name = getattr(telegram_user, 'first_name', None) or "Player"
+        new_player = {
+            'user_id': user_id,
+            'telegram_id': str(user_id),
+            'username': username,
+            'first_name': first_name,
+            'in_game_name': first_name or username,
+            'coins': 5,
+            'cards': [],
+            'msgc_registered': False,
+            'status': {
+                'protected': False,
+                'karma_active_until': 0,
+                'ricochet_active_until': 0,
+                'blackout_until': 0,
+                'mirage_until': 0,
+                'black_market_until': 0,
+                'shackled_until': 0,
+                'trap_active': False,
+                'last_card_use_time': 0,
+                'speed_active_until': 0,
+                'frenzy_active': 0,
+                'inflation_immunity_until': 0
+            }
+        }
+        save_player_data(user_id, new_player)
+        player_data = get_player_data(user_id)
+    return player_data
 
 def get_game_state() -> dict:
     """Retrieves global game state from Supabase."""
@@ -238,10 +276,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not player_data:
         new_player = {
             'user_id': user.id,
-            'username': user.username,
-            'first_name': user.first_name,
+            'telegram_id': str(user.id),
+            'username': user.username or f"user_{user.id}",
+            'first_name': user.first_name or "Player",
+            'in_game_name': user.first_name or user.username or f"Player_{user.id}",
             'coins': 5,
             'cards': [],
+            'msgc_registered': False,
             'status': {
                 'protected': False,
                 'karma_active_until': 0,
@@ -296,10 +337,10 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     user_id = update.effective_user.id
-    player_data = get_player_data(user_id)
+    player_data = ensure_player_registered(user_id, update.effective_user)
 
     if not player_data:
-        await update.message.reply_text("You are not registered yet. Use /start to join.")
+        await update.message.reply_text("Unable to load profile. Please try again.")
         return
 
     safe_first_name = escape_markdown_v2(player_data.get('first_name', ''))
@@ -355,10 +396,10 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 # --- INTERACTIVE STORE ---
 
-def build_store_menu(user_id):
+def build_store_menu(user_id, telegram_user=None):
     """Builds the main store menu text and keyboard markup, considering inflation and black market."""
     game_state = get_game_state()
-    player_data = get_player_data(user_id)
+    player_data = ensure_player_registered(user_id, telegram_user)
     player_status = player_data.get('status', {}) if player_data else {}
 
     inflation_active = game_state.get('inflation_until', 0) > time.time()
@@ -386,7 +427,7 @@ async def store_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text("You can only access the store in a private chat with me. Please send /store here.")
         return
 
-    text, reply_markup = build_store_menu(update.effective_user.id)
+    text, reply_markup = build_store_menu(update.effective_user.id, update.effective_user)
     if reply_markup:
         await send_safe_message(update.message, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
     else:
@@ -401,7 +442,7 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     user_id = query.from_user.id
 
     game_state = get_game_state()
-    player_data = get_player_data(user_id)
+    player_data = ensure_player_registered(user_id, query.from_user)
     player_status = player_data.get('status', {}) if player_data else {}
 
     inflation_active = game_state.get('inflation_until', 0) > time.time()
@@ -433,7 +474,7 @@ async def handle_back_to_store_callback(update: Update, context: ContextTypes.DE
     """Handles the 'Back to Store' button press."""
     query = update.callback_query
     await query.answer()
-    text, reply_markup = build_store_menu(query.from_user.id)
+    text, reply_markup = build_store_menu(query.from_user.id, query.from_user)
     await send_safe_message(query, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -448,9 +489,9 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text("Database not available.")
         return
 
-    player_data = get_player_data(user_id)
+    player_data = ensure_player_registered(user_id, query.from_user)
     if not player_data:
-        await query.edit_message_text("Player not found.")
+        await query.edit_message_text("Unable to process purchase. Please try again.")
         return
 
     current_cards = player_data.get('cards', [])
@@ -519,9 +560,9 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Card not found. Please use the exact card name or ID.")
         return
 
-    player_data = get_player_data(user.id)
+    player_data = ensure_player_registered(user.id, user)
     if not player_data:
-        await update.message.reply_text("You are not registered. Use /start to join.")
+        await update.message.reply_text("Unable to load profile. Please try again.")
         return
 
     now = time.time()
