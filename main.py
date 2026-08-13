@@ -160,35 +160,35 @@ def get_player_by_username(username: str) -> dict:
         return None
 
 def get_all_players() -> list:
-    """Retrieves all players from Supabase with fallbacks for RLS policies."""
+    """Retrieves all players from Supabase with fallbacks for PostgREST range queries."""
     if not db: return []
     try:
         rows = []
-        # Attempt 1: Direct limit query
+        # Attempt 1: Explicit Range query (0 to 9999)
         try:
-            res = db.table('users').select('*').limit(5000).execute()
+            res = db.table('users').select('*').range(0, 9999).execute()
             if res and hasattr(res, 'data') and res.data:
                 rows = res.data
         except Exception as e1:
-            logger.warning(f"Select * limit query failed: {e1}")
+            logger.warning(f"Range query failed: {e1}")
 
-        # Attempt 2: Filter by non-empty telegram_id (bypasses default RLS empty result)
+        # Attempt 2: Filter by telegram_id > '0'
         if not rows:
             try:
-                res = db.table('users').select('*').neq('telegram_id', '').limit(5000).execute()
+                res = db.table('users').select('*').gt('telegram_id', '0').range(0, 9999).execute()
                 if res and hasattr(res, 'data') and res.data:
                     rows = res.data
             except Exception as e2:
-                logger.warning(f"neq telegram_id query failed: {e2}")
+                logger.warning(f"gt telegram_id query failed: {e2}")
 
-        # Attempt 3: Filter by non-null telegram_id
+        # Attempt 3: Direct limit query
         if not rows:
             try:
-                res = db.table('users').select('*').not_.is_('telegram_id', 'null').limit(5000).execute()
+                res = db.table('users').select('*').limit(5000).execute()
                 if res and hasattr(res, 'data') and res.data:
                     rows = res.data
             except Exception as e3:
-                logger.warning(f"not null telegram_id query failed: {e3}")
+                logger.warning(f"Select * limit query failed: {e3}")
 
         players = []
         for data in rows:
