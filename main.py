@@ -119,16 +119,20 @@ async def send_safe_message(target_obj, text: str, reply_markup=None, parse_mode
             logger.error(f"Failed to send fallback plain text message: {e2}")
 
 def get_player_data(user_id: int) -> dict:
-    """Retrieves player data from Supabase using telegram_id."""
+    """Retrieves player data from Supabase using telegram_id or user_id."""
     if not db: return None
     try:
         response = db.table('users').select('*').eq('telegram_id', str(user_id)).execute()
         if not response.data or len(response.data) == 0:
             response = db.table('users').select('*').eq('telegram_id', int(user_id)).execute()
+        if not response.data or len(response.data) == 0:
+            response = db.table('users').select('*').eq('user_id', int(user_id)).execute()
+        if not response.data or len(response.data) == 0:
+            response = db.table('users').select('*').eq('user_id', str(user_id)).execute()
 
         if response.data and len(response.data) > 0:
             data = response.data[0]
-            tid = data.get('telegram_id') or user_id
+            tid = data.get('telegram_id') or data.get('user_id') or user_id
             data['user_id'] = int(tid)
             data['status'] = parse_json_dict(data.get('status'))
             data['cards'] = parse_json_list(data.get('cards'))
@@ -198,7 +202,11 @@ def update_player_data(user_id: int, updates: dict):
         payload.pop('user_id', None)
         res = db.table('users').update(payload).eq('telegram_id', str(user_id)).execute()
         if not res.data or len(res.data) == 0:
-            db.table('users').update(payload).eq('telegram_id', int(user_id)).execute()
+            res = db.table('users').update(payload).eq('telegram_id', int(user_id)).execute()
+        if not res.data or len(res.data) == 0:
+            res = db.table('users').update(payload).eq('user_id', int(user_id)).execute()
+        if not res.data or len(res.data) == 0:
+            res = db.table('users').update(payload).eq('user_id', str(user_id)).execute()
     except Exception as e:
         logger.error(f"Error updating player data for {user_id}: {e}")
 
@@ -233,7 +241,7 @@ def ensure_player_registered(user_id: int, telegram_user=None) -> dict:
             }
         }
         save_player_data(user_id, new_player)
-        player_data = get_player_data(user_id)
+        player_data = get_player_data(user_id) or new_player
     return player_data
 
 def get_game_state() -> dict:
