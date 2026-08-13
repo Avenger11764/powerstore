@@ -188,7 +188,11 @@ def save_player_data(user_id: int, player_data: dict):
             payload['in_game_name'] = player_data.get('first_name') or player_data.get('username') or f"Player_{user_id}"
         if not payload.get('first_name'):
             payload['first_name'] = player_data.get('in_game_name') or player_data.get('username') or "Player"
-        db.table('users').upsert(payload, on_conflict='telegram_id').execute()
+        try:
+            db.table('users').upsert(payload, on_conflict='telegram_id').execute()
+        except Exception:
+            payload['telegram_id'] = int(user_id)
+            db.table('users').upsert(payload, on_conflict='telegram_id').execute()
     except Exception as e:
         logger.error(f"Error saving player data for {user_id}: {e}")
 
