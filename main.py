@@ -1208,6 +1208,15 @@ async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         new_coins = target_data.get('coins', 0) + amount
         update_player_data(target_data['user_id'], {'coins': new_coins})
         
+        # Send DM notification to the player
+        try:
+            await context.bot.send_message(
+                chat_id=target_data['user_id'],
+                text=f"🎁 You have received {amount} Power Coins from the Admin!"
+            )
+        except Exception as e:
+            logger.warning(f"Could not send DM to user {target_data['user_id']}: {e}")
+
         await update.message.reply_text(f"✅ Successfully awarded {amount} PC to @{username}.")
         await log_activity(context.bot, f"👑 Admin awarded {amount} PC to @{username}.")
 
@@ -1241,6 +1250,13 @@ async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         all_players = get_all_players()
         for p in all_players:
             update_player_data(p['user_id'], {'coins': p.get('coins', 0) + amount})
+            try:
+                await context.bot.send_message(
+                    chat_id=p['user_id'],
+                    text=f"🎁 You have received {amount} Power Coins from the Admin!"
+                )
+            except Exception as e:
+                logger.warning(f"Could not send DM to user {p['user_id']}: {e}")
         
         await update.message.reply_text(f"✅ Successfully awarded {amount} PC to all {len(all_players)} players.")
         await log_activity(context.bot, f"👑 Admin awarded {amount} PC to all {len(all_players)} players.")
@@ -1278,6 +1294,15 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         update_player_data(target_data['user_id'], {'cards': c_list})
         card_name = POWER_CARDS[card_id]['name']
         
+        # Send DM notification to the player
+        try:
+            await context.bot.send_message(
+                chat_id=target_data['user_id'],
+                text=f"🎁 You have received a {card_name} card from the Admin!"
+            )
+        except Exception as e:
+            logger.warning(f"Could not send DM to user {target_data['user_id']}: {e}")
+
         await update.message.reply_text(f"✅ Successfully gave a {card_name} card to @{username}.")
         await log_activity(context.bot, f"👑 Admin gave a {card_name} card to @{username}.")
 
