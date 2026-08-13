@@ -1442,12 +1442,16 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
     
     try:
-        card_name_query, username = context.args
-        username = username.lstrip('@')
-        card_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == card_name_query.lower()), None)
+        if len(context.args) < 2:
+            await update.message.reply_text("Usage: /givecard <Card Name> @username")
+            return
+
+        username = context.args[-1].lstrip('@')
+        card_name_query = " ".join(context.args[:-1])
+        card_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == card_name_query.lower() or cid.lower() == card_name_query.lower()), None)
         
         if not card_id:
-            await update.message.reply_text(f"Card '{card_name_query}' not found.")
+            await update.message.reply_text(f"Card '{card_name_query}' not found. Please use the exact card name.")
             return
 
         target_data = get_player_by_username(username)
