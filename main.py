@@ -1335,18 +1335,26 @@ async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     try:
+        awardall_gif_url = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnp4amQzMGRvcTk1YWRtNXk3d2NpeHd4eGxidGh5ZWltMnhldDdkMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pwyW4XDmtqjG8/giphy.gif"
         all_players = get_all_players()
         for p in all_players:
             update_player_data(p['user_id'], {'coins': p.get('coins', 0) + amount})
             try:
-                await context.bot.send_message(
+                await context.bot.send_animation(
                     chat_id=p['user_id'],
-                    text=f"🎁 You have received {amount} Power Coins from the Admin!"
+                    animation=awardall_gif_url,
+                    caption=f"🎁 You have received {amount} Power Coins from the Admin!"
                 )
             except Exception as e:
                 logger.warning(f"Could not send DM to user {p['user_id']}: {e}")
         
-        await update.message.reply_text(f"✅ Successfully awarded {amount} PC to all {len(all_players)} players.")
+        reply_msg = f"✅ Successfully awarded {amount} PC to all {len(all_players)} players."
+        try:
+            await update.message.reply_animation(animation=awardall_gif_url, caption=reply_msg)
+        except Exception as e:
+            logger.warning(f"Could not send awardall GIF animation: {e}")
+            await update.message.reply_text(reply_msg)
+
         await log_activity(context.bot, f"👑 Admin awarded {amount} PC to all {len(all_players)} players.")
 
     except Exception as e:
