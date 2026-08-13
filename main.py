@@ -589,11 +589,17 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(f"You don't have a {POWER_CARDS[card_id]['name']} card.")
         return
     
+    card = POWER_CARDS[card_id]
+
+    if update.message.chat.type == 'private':
+        if card_id in NEGATIVE_CARDS or card.get('requires_target') or card_id == 'god':
+            await update.message.reply_text("❌ Attacking or targeted cards can only be used in group chats!")
+            return
+
     if card_id == 'god':
         await execute_god_power(update, context, user, card_args)
         return
         
-    card = POWER_CARDS[card_id]
     target_user = None
     if card['requires_target']:
         effective_msg = update.effective_message
