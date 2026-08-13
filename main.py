@@ -171,24 +171,13 @@ def get_player_by_username(username: str) -> dict:
         logger.error(f"Error fetching player by username {username}: {e}")
         return None
 
-def get_all_players() -> list:
-    """Retrieves all players from Supabase."""
+def get_all_players_debug() -> tuple:
+    """Retrieves all players from Supabase and returns debug details."""
     if not db:
-        logger.warning("get_all_players: db client is not initialized.")
-        return []
+        return [], "Database client is None"
     try:
-        response = db.table('users').select('*').execute()
-        rows = response.data if response and hasattr(response, 'data') and response.data else []
-        
-        if not rows:
-            logger.warning(f"get_all_players: select * returned empty data. Response: {response}")
-            try:
-                res2 = db.table('users').select('Telegram_id, telegram_id, username, first_name, coins, cards, status, msgc_registered').execute()
-                if res2 and hasattr(res2, 'data') and res2.data:
-                    rows = res2.data
-            except Exception as e2:
-                logger.error(f"get_all_players fallback select error: {e2}")
-
+        res = db.table('users').select('*').execute()
+        rows = res.data if res and hasattr(res, 'data') and res.data is not None else []
         players = []
         for data in rows:
             tid = extract_telegram_id(data)
@@ -200,11 +189,13 @@ def get_all_players() -> list:
             data['status'] = parse_json_dict(data.get('status'))
             data['cards'] = parse_json_list(data.get('cards'))
             players.append(data)
-        logger.info(f"get_all_players fetched {len(players)} players.")
-        return players
+        return players, f"Success (returned {len(rows)} rows)"
     except Exception as e:
-        logger.error(f"Error fetching all players: {e}", exc_info=True)
-        return []
+        return [], f"Exception: {e}"
+
+def get_all_players() -> list:
+    players, _ = get_all_players_debug()
+    return players
 
 def save_player_data(user_id: int, player_data: dict):
     """Upserts full player profile into Supabase."""
@@ -1425,9 +1416,16 @@ async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     try:
         awardall_gif_url = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnp4amQzMGRvcTk1YWRtNXk3d2NpeHd4eGxidGh5ZWltMnhldDdkMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pwyW4XDmtqjG8/giphy.gif"
-        all_players = get_all_players()
+        all_players, debug_info = get_all_players_debug()
         if not all_players:
-            await update.message.reply_text("⚠️ No registered players were retrieved from the database. Please check Supabase table permissions or logs.")
+            key_prefix = SUPABASE_KEY[:12] if SUPABASE_KEY else 'None'
+            await update.message.reply_text(
+                f"⚠️ No registered players were retrieved.\n\n"
+                f"🔍 *Diagnostic Details:*\n"
+                f"• URL: `{SUPABASE_URL}`\n"
+                f"• Key Prefix: `{key_prefix}...`\n"
+                f"• DB Response: `{debug_info}`"
+            )
             return
 
         for p in all_players:
