@@ -37,7 +37,8 @@ db: Client = None
 try:
     if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL != "YOUR_SUPABASE_URL" and SUPABASE_KEY != "YOUR_SUPABASE_KEY":
         db = create_client(SUPABASE_URL, SUPABASE_KEY)
-        logger.info("Supabase initialized successfully.")
+        key_prefix = SUPABASE_KEY[:12] if len(SUPABASE_KEY) >= 12 else SUPABASE_KEY
+        logger.info(f"Supabase initialized successfully with key prefix: {key_prefix}...")
     else:
         logger.warning("Supabase URL or Key not fully configured. Using placeholder database state.")
 except Exception as e:
