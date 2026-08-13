@@ -48,41 +48,41 @@ except Exception as e:
 # --- CARD DEFINITIONS ---
 POWER_CARDS = {
     # Tier 1: Utility & Minor Effects
-    'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'requires_target': False},
-    'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'requires_target': True},
-    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'requires_target': True},
-    'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'requires_target': False},
-    'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'requires_target': False},
-    'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'requires_target': False},
-    'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'requires_target': False},
+    'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZWZlbjB5YXZibzdnZmF4MG05Mm02dDc0ejZwcnJ2eHU5YTQwcWpweCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ornjIhZGFWpbcGMAU/giphy.gif'},
+    'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2JkamxzaTNwMXo4ZXJreHl5a3M5dnFxMGowNTdsbm9sbmRpbnhhOSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bufkPz3LRof205G/giphy.gif'},
+    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
+    'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWFwbWJkYmZsN3Bmbm03aTM1NXh4NWQ3Njd4aDM5bDJyczZlODA5ZCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Kfg01zJWGDMT6/giphy.gif'},
+    'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTdyZng0bzloNnlvajdzdDIxc2VjMjl2OTN4MW9wdzlmbHZ0amd2ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Loe03BsYRrv13l8h9q/giphy.gif'},
+    'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJsaXhoOTRsc2V6dHU0YnFyNTl6dHR6d2FoZnM1NXZoMjU2YnU5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l3vRl0hL5yTjuOFji/giphy.gif'},
+    'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNzQ1bmc2MW1iMXFlYjRvN2JteW9sNXczOWxtNjU3MzFhbmIzZm0zdCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/30VBSGB7QW1RJpNcHO/giphy.gif'},
     
     # Tier 2: Direct Interaction
-    'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'requires_target': True},
-    'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 30, 'icon': '🌀', 'requires_target': True},
-    'shackle': {'name': 'Shackle', 'description': 'For 1 hour, your target is unable to use any cards.', 'price': 30, 'icon': '⛓️', 'requires_target': True},
-    'spotlight': {'name': 'Spotlight', 'description': 'Publicly reveal a target player\'s entire card inventory to the group.', 'price': 25, 'icon': '💡', 'requires_target': True},
-    'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'requires_target': True},
-    'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'requires_target': False},
-    'dispel': {'name': 'Dispel', 'description': 'Immediately removes Shackle and personal Inflation effects from yourself.', 'price': 30, 'icon': '💨', 'requires_target': False},
-    'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 20, 'icon': '🎲', 'requires_target': True},
+    'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3Nm41eWMyOWk0bmZodzc0c2xkZmJ4MWNyMnUyeW5vajc2MGowZGFzbiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ASM4IvHzkop00e6sUN/giphy.gif'},
+    'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 30, 'icon': '🌀', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcXphOWVramc1bXo4a2tqZ2JtYjF1OG45bzFxODlpYTc2Mm9hZml2cyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/10DnwPMOWFxn7G/giphy.gif'},
+    'shackle': {'name': 'Shackle', 'description': 'For 1 hour, your target is unable to use any cards.', 'price': 30, 'icon': '⛓️', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcnF4eW1oNnBtazZnMHozNTFmdjcxazVlODJqZTdvaTUzYm90ZmJmNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hZfLN9xZyuALtcseXG/giphy.gif'},
+    'spotlight': {'name': 'Spotlight', 'description': 'Publicly reveal a target player\'s entire card inventory to the group.', 'price': 25, 'icon': '💡', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWZqMDIzODFlMWdldjh3eDJrbDdmbzN5cms3MHhyc2RjM29nczQ0aCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/cEy0W6cMR584tK1vbM/giphy.gif'},
+    'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdzgwcGQwdzljMXdqeWNzMzdmNWEyc2Zxb3l6bTZ4YzhndXR0YjczMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3oxRmvU3GAJay6F60g/giphy.gif'},
+    'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3VkZ3M3a3U0ampwNTgxN2dkeTgzZmFpeGg3M254NGNjMGdvaXhmbyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ohzdNDknsTEB1dNny/giphy.gif'},
+    'dispel': {'name': 'Dispel', 'description': 'Immediately removes Shackle and personal Inflation effects from yourself.', 'price': 30, 'icon': '💨', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWtpczRwbnhxYjFxZmUyMGJyeW5rOXY4YTZ0NmxvNWg5N2NhM2JtdSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3bJr49ky73noj6Pb64/giphy.gif'},
+    'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 20, 'icon': '🎲', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeXk2cXMyODB4bDNhYnI0NXlmMng3eWNvaW5paXhxamUzOGE0MDZqcCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26uf2YTgF5upXUTm0/giphy.gif'},
 
     # Tier 3: Powerful Effects
-    'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 40, 'icon': '🛡️', 'requires_target': False},
-    'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 50, 'icon': '🪤', 'requires_target': False},
-    'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'requires_target': False},
-    'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'requires_target': True},
-    'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'requires_target': True},
-    'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'requires_target': False},
-    'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄', 'requires_target': True},
-    'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'requires_target': True},
-    'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'requires_target': False},
-    'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 50, 'icon': '🎯', 'requires_target': True},
-    'vortex': {'name': 'Vortex', 'description': 'All players in the game (including you) must immediately discard one random card.', 'price': 30, 'icon': '🌪️', 'requires_target': False},
-    'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 75, 'icon': '❓', 'requires_target': True},
-    'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 35, 'icon': '🔀', 'requires_target': False},
+    'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 40, 'icon': '🛡️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHBtbW54MHliaHhuMjlmcG1zb3BsMG44NW12cHhuOHlwaWtoeW1idCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/dyKyTBu6adRKuJpmWU/giphy.gif'},
+    'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 50, 'icon': '🪤', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbHk5MGNtY2x6bDhtcW9hc3M5cjdheTgydjZ0eGc5aXltc2RjNTR5ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/XYCHHBtZxfmAU/giphy.gif'},
+    'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjI4amMyaGp5aTdzd2JrdDdocGFiaGtsc2IycDl4Y2RjdTZ3ZGxmdyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hje9Yxu2SNtNlx80oZ/giphy.gif'},
+    'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3eG1iMTlsbnk5dWp5azNocWQyNmtyd3l0enY2cWIxdDUyYmpyMnV4byZlcD12MV9naWZzX3NlYXJjaCZjdD1n/n6EMXWDjT9G8Q0EMCQ/giphy.gif'},
+    'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmE5bGtkOGttb2c1Z29tbm9yOW5obnp0MXRtM2x5MGsxMnNob3pvOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pw1lmX78sDOyRvMKhZ/giphy.gif'},
+    'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGQwdW5wajFuOTI5N3F6dzJlaWE3aWd2NDJzdDVnYzE5MjFja2lpcSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Th9FMIgIgu9hK/giphy.gif'},
+    'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGVyMXk3dzNyOGRqeWsxbm9zejZ4N3QzcXF4ajQ2NXh0bjJwcHlsbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HWVx61TKUD7nGdruml/giphy.gif'},
+    'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExenVqNmVweWFwdzJiOWMxNmN0YzFkZHB2dTQ3bXIzeGlzc28xdmhvayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HUtsjiqzv1M9a/giphy.gif'},
+    'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGtsejkyemNsbWhseXpzaGIxOTJ6eDNheGNoYmp4YjJ1Yjg5dGQ1NiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/gKxSdzHFNUpZ8EKirE/giphy.gif'},
+    'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 50, 'icon': '🎯', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaXNvbGIwMTRvb2FmcmtuaGs4bXZ4MDZnNTMzOWg1ZTRvbHBxbm1qYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/8uvgnTDSSpcVdVMjmf/giphy.gif'},
+    'vortex': {'name': 'Vortex', 'description': 'All players in the game (including you) must immediately discard one random card.', 'price': 30, 'icon': '🌪️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmRyYXRvb2dmMTJnZGlqOHVzamcxM3Q3cHEzN2U0MGV2eHdwNmticSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/uWXDBmVYdByWreOuRs/giphy.gif'},
+    'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 75, 'icon': '❓', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJ4b3FrYWlmNGQ4YjV1dGNoMW9zbDlpcGJ2OWlxOTZob2xzbmZubSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1zR9zWe9tzwoZi84ws/giphy.gif'},
+    'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 35, 'icon': '🔀', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcXA4MW0ybDRieXk4ODFwMXZzbDhxY2phYXU0cWFuMGdtcHZoYnVieiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/fcODRi10teFrO/giphy.gif'},
 
     # Special Tier: Game-Changing Power
-    'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 80, 'icon': '🛐', 'requires_target': False},
+    'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 80, 'icon': '🛐', 'requires_target': False, 'gifs': {'blessing': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN3V3YXZxa3g3Nm41ODZnbjNzbDl2ZXFtN2ttNm1nZG13dThmcmN2MiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/zItSCrxIAg14zNVtjP/giphy.gif', 'smite': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNnNpbDJmMGRnZGIzZGswYmx0OXZiem5jYnNnZHMydzI5YXE0cWlhcyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/RKUVT8fPMsRfa/giphy.gif', 'tribute': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNWc1cGxveGQ5NmFmZmd6YWhua2gyZzNjdjc2Mm84Nm01aXBjd3ZycCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/dAhtjvu5VYan5RjU2r/giphy.gif'}},
 }
 
 NEGATIVE_CARDS = {'flame', 'glitch', 'devil', 'swap', 'spotlight', 'purge', 'amnesia', 'shackle', 'steal', 'double_or_nothing'}
@@ -982,7 +982,13 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     if result.get('action') == 'trigger_vortex':
-        if 'public' in result and result['public']:
+        gif_url = POWER_CARDS['vortex'].get('gif')
+        if gif_url and 'public' in result and result['public']:
+            try:
+                await update.message.reply_animation(animation=gif_url, caption=result['public'])
+            except Exception as e:
+                await update.message.reply_text(result['public'])
+        elif 'public' in result and result['public']:
             await update.message.reply_text(result['public'])
         
         all_players = get_all_players()
@@ -1018,7 +1024,15 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     if 'public' in result and result['public']:
-        await update.message.reply_text(result['public'])
+        gif_url = card.get('gif') if isinstance(card, dict) else None
+        if gif_url:
+            try:
+                await update.message.reply_animation(animation=gif_url, caption=result['public'])
+            except Exception as e:
+                logger.warning(f"Failed to send GIF animation ({e}), falling back to text.")
+                await update.message.reply_text(result['public'])
+        else:
+            await update.message.reply_text(result['public'])
     if 'private' in result and result['private']:
         await context.bot.send_message(chat_id=user.id, text=result['private'])
 
@@ -1076,7 +1090,15 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
         f"The coin flip reveals **{winner.first_name}** as the winner!\n\n"
         f"{winner.first_name} takes the entire pot of {wager * 2} coins from {loser.first_name}."
     )
-    await update.message.reply_text(message)
+    gif_url = POWER_CARDS['double_or_nothing'].get('gif')
+    if gif_url:
+        try:
+            await update.message.reply_animation(animation=gif_url, caption=message)
+        except Exception as e:
+            logger.warning(f"Could not send Double or Nothing animation ({e}), sending text.")
+            await update.message.reply_text(message)
+    else:
+        await update.message.reply_text(message)
 
     try:
         target_dm_text = f"🎲 {attacker.first_name} (@{attacker.username or 'user'}) used Double or Nothing on you!\n\nWinner: {winner.first_name}\nPot won: {wager * 2} Power Coins"
@@ -1160,7 +1182,17 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         if 'god' in u_cards: u_cards.remove('god')
         update_player_data(user.id, {'coins': user_data.get('coins', 0), 'cards': u_cards})
 
-        await update.message.reply_text(effect_message)
+        god_gifs = POWER_CARDS['god'].get('gifs', {})
+        gif_url = god_gifs.get(power) if isinstance(god_gifs, dict) else None
+        
+        if gif_url:
+            try:
+                await update.message.reply_animation(animation=gif_url, caption=effect_message)
+            except Exception as e:
+                logger.warning(f"Could not send God power animation ({e}), sending text.")
+                await update.message.reply_text(effect_message)
+        else:
+            await update.message.reply_text(effect_message)
         
         if target_data and target_data.get('user_id') and target_data['user_id'] != user.id:
             try:
