@@ -160,35 +160,22 @@ def get_player_by_username(username: str) -> dict:
         return None
 
 def get_all_players() -> list:
-    """Retrieves all players from Supabase with fallbacks for PostgREST range queries."""
-    if not db: return []
+    """Retrieves all players from Supabase."""
+    if not db:
+        logger.warning("get_all_players: db client is not initialized.")
+        return []
     try:
-        rows = []
-        # Attempt 1: Explicit Range query (0 to 9999)
-        try:
-            res = db.table('users').select('*').range(0, 9999).execute()
-            if res and hasattr(res, 'data') and res.data:
-                rows = res.data
-        except Exception as e1:
-            logger.warning(f"Range query failed: {e1}")
-
-        # Attempt 2: Filter by telegram_id > '0'
+        response = db.table('users').select('*').execute()
+        rows = response.data if response and hasattr(response, 'data') and response.data else []
+        
         if not rows:
+            logger.warning(f"get_all_players: select * returned empty data. Response: {response}")
             try:
-                res = db.table('users').select('*').gt('telegram_id', '0').range(0, 9999).execute()
-                if res and hasattr(res, 'data') and res.data:
-                    rows = res.data
+                res2 = db.table('users').select('telegram_id, username, first_name, coins, cards, status, msgc_registered').execute()
+                if res2 and hasattr(res2, 'data') and res2.data:
+                    rows = res2.data
             except Exception as e2:
-                logger.warning(f"gt telegram_id query failed: {e2}")
-
-        # Attempt 3: Direct limit query
-        if not rows:
-            try:
-                res = db.table('users').select('*').limit(5000).execute()
-                if res and hasattr(res, 'data') and res.data:
-                    rows = res.data
-            except Exception as e3:
-                logger.warning(f"Select * limit query failed: {e3}")
+                logger.error(f"get_all_players fallback select error: {e2}")
 
         players = []
         for data in rows:
@@ -204,7 +191,7 @@ def get_all_players() -> list:
         logger.info(f"get_all_players fetched {len(players)} players.")
         return players
     except Exception as e:
-        logger.error(f"Error fetching all players: {e}")
+        logger.error(f"Error fetching all players: {e}", exc_info=True)
         return []
 
 def save_player_data(user_id: int, player_data: dict):
@@ -1425,6 +1412,10 @@ async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     try:
         awardall_gif_url = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnp4amQzMGRvcTk1YWRtNXk3d2NpeHd4eGxidGh5ZWltMnhldDdkMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pwyW4XDmtqjG8/giphy.gif"
         all_players = get_all_players()
+        if not all_players:
+            await update.message.reply_text("⚠️ No registered players were retrieved from the database. Please check Supabase table permissions or logs.")
+            return
+
         for p in all_players:
             update_player_data(p['user_id'], {'coins': p.get('coins', 0) + amount})
             try:
