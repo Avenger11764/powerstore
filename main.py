@@ -687,7 +687,10 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
             
             update_player_data(target_id, {'status': target_status})
             update_player_data(user_id, {'coins': user_coins, 'cards': user_cards, 'status': user_status})
-            return {'public': f"🪤 Sprung! {target_name}'s Trap nullified the {card['name']} card and made {user_name} lose 15 coins!"}
+            return {
+                'public': f"🪤 Sprung! {target_name}'s Trap nullified the {card['name']} card and made {user_name} lose 15 coins!",
+                'override_gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExam55aGthejd1ano0Mm1uY3FqNzFvZjV2b2xzcnA3OGc1ajZ5a2dzbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26vUSsA7qFftHrgCk/giphy.gif'
+            }
 
         if target_status.get('ricochet_active_until', 0) > time.time():
             target_status['ricochet_active_until'] = 0
@@ -1033,7 +1036,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     if 'public' in result and result['public']:
-        gif_url = card.get('gif') if isinstance(card, dict) else None
+        gif_url = result.get('override_gif') or (card.get('gif') if isinstance(card, dict) else None)
         if gif_url:
             try:
                 await update.message.reply_animation(animation=gif_url, caption=result['public'])
@@ -1167,6 +1170,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
         user_name = user_data.get('first_name', 'A player')
         effect_message = ""
+        override_gif = None
 
         if power == 'blessing':
             t_cards = list(target_data.get('cards', []))
@@ -1182,6 +1186,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 update_player_data(target_data['user_id'], {'status': target_status})
                 update_player_data(user.id, {'coins': user_coins})
                 effect_message = f"🪤 Sprung! {target_data.get('first_name')}'s Trap nullified God's Smite and made {user_name} lose 15 coins!"
+                override_gif = 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExam55aGthejd1ano0Mm1uY3FqNzFvZjV2b2xzcnA3OGc1ajZ5a2dzbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26vUSsA7qFftHrgCk/giphy.gif'
             elif target_status.get('protected'):
                 target_status['protected'] = False
                 update_player_data(target_data['user_id'], {'status': target_status})
@@ -1212,7 +1217,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         update_player_data(user.id, {'coins': user_data.get('coins', 0), 'cards': u_cards})
 
         god_gifs = POWER_CARDS['god'].get('gifs', {})
-        gif_url = god_gifs.get(power) if isinstance(god_gifs, dict) else None
+        gif_url = override_gif or (god_gifs.get(power) if isinstance(god_gifs, dict) else None)
         
         if gif_url:
             try:
