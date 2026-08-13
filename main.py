@@ -1019,6 +1019,11 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
                 p_status['protected'] = False
                 update_player_data(p_id, {'status': p_status})
                 discard_summary.append(f"🛡️ {p_name} was protected by a Forcefield!")
+                if p_id != user.id:
+                    try:
+                        await context.bot.send_message(chat_id=p_id, text=f"🌪️ {user_name} (@{user.username or 'user'}) unleashed a Vortex, but your Forcefield protected you!")
+                    except Exception as e:
+                        logger.warning(f"Could not send Vortex DM to {p_id}: {e}")
             elif not p_cards:
                 discard_summary.append(f"💨 {p_name} had no cards to discard.")
             else:
@@ -1027,6 +1032,11 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
                 update_player_data(p_id, {'cards': p_cards})
                 c_name = POWER_CARDS.get(c_disc, {}).get('name', 'Unknown Card')
                 discard_summary.append(f"🌪️ {p_name} lost a {c_name} card.")
+                if p_id != user.id:
+                    try:
+                        await context.bot.send_message(chat_id=p_id, text=f"🌪️ {user_name} (@{user.username or 'user'}) unleashed a Vortex!\nYou were forced to discard your {c_name} card.")
+                    except Exception as e:
+                        logger.warning(f"Could not send Vortex DM to {p_id}: {e}")
 
         summary_message = "\n".join(discard_summary)
         await update.message.reply_text(summary_message)
@@ -1045,6 +1055,20 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(result['public'])
     if 'private' in result and result['private']:
         await context.bot.send_message(chat_id=user.id, text=result['private'])
+
+    if card_id == 'inflation' and result.get('public'):
+        all_players = get_all_players()
+        user_is_msgc = bool(user_data.get('msgc_registered', False)) if user_data else False
+        for p in all_players:
+            p_is_msgc = bool(p.get('msgc_registered', False))
+            if p['user_id'] != user.id and p_is_msgc == user_is_msgc:
+                try:
+                    await context.bot.send_message(
+                        chat_id=p['user_id'],
+                        text=f"📈 {user.first_name} (@{user.username or 'user'}) used Inflation!\nFor the next 1 hour, store card prices are doubled for everyone else!"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not send Inflation DM to user {p['user_id']}: {e}")
 
     if target_user and getattr(target_user, 'id', None) and target_user.id != user.id and result.get('public'):
         try:
@@ -1203,6 +1227,13 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     c_pay = min(5, p.get('coins', 0))
                     total_tribute += c_pay
                     update_player_data(p['user_id'], {'coins': p.get('coins', 0) - c_pay})
+                    try:
+                        await context.bot.send_message(
+                            chat_id=p['user_id'],
+                            text=f"🛐 {user_name} (@{user.username or 'user'}) used God's Tribute!\nYou paid {c_pay} Power Coins in tribute."
+                        )
+                    except Exception as e:
+                        logger.warning(f"Could not send Tribute DM to user {p['user_id']}: {e}")
             
             user_data['coins'] = user_data.get('coins', 0) + total_tribute
             effect_message = f"🛐 {user_name} used God's Tribute, collecting a total of {total_tribute} coins from all other players!"
