@@ -185,17 +185,32 @@ def get_player_data(user_id: int) -> dict:
         return None
 
 def get_player_by_username(username: str) -> dict:
-    """Retrieves player data by Telegram username."""
+    """Retrieves player data by Telegram username, first_name, in_game_name or ID."""
     if not db: return None
+    clean_username = username.lstrip('@').lower().strip()
     try:
-        response = db.table('users').select('*').ilike('username', username).execute()
-        if response.data and len(response.data) > 0:
-            data = response.data[0]
-            tid = extract_telegram_id(data)
-            if tid: data['user_id'] = int(tid)
-            data['status'] = parse_json_dict(data.get('status'))
-            data['cards'] = parse_json_list(data.get('cards'))
-            return data
+        all_players = get_all_players()
+        for p in all_players:
+            p_uname = str(p.get('username') or '').lstrip('@').lower().strip()
+            p_fname = str(p.get('first_name') or '').lower().strip()
+            p_gname = str(p.get('in_game_name') or '').lower().strip()
+            p_uid = str(p.get('user_id') or '').lower().strip()
+            if clean_username in [p_uname, p_fname, p_gname, p_uid] or (clean_username and clean_username in p_uname):
+                return p
+
+        for col in ['username', 'first_name', 'in_game_name']:
+            for pattern in [username.lstrip('@'), f"@{username.lstrip('@')}"]:
+                try:
+                    res = db.table('users').select('*').ilike(col, pattern).execute()
+                    if res and res.data and len(res.data) > 0:
+                        data = res.data[0]
+                        tid = extract_telegram_id(data)
+                        if tid: data['user_id'] = int(tid)
+                        data['status'] = parse_json_dict(data.get('status'))
+                        data['cards'] = parse_json_list(data.get('cards'))
+                        return data
+                except Exception:
+                    pass
         return None
     except Exception as e:
         logger.error(f"Error fetching player by username {username}: {e}")
