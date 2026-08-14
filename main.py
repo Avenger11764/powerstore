@@ -531,12 +531,16 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if player_data.get('msgc_registered'):
         status_list.append("MSGC Registered ✅")
 
-    status_str = escape_markdown_v2(", ".join(status_list) if status_list else "Normal")
+    from datetime import datetime
+    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    last_god_date = status.get('last_god_use_date', '')
+    god_uses_today = status.get('god_card_uses_today', 0) if last_god_date == today_str else 0
 
     message = (
         f"👤 *Profile for {safe_first_name}*\n\n"
         f"💰 *Power Coins:* {player_data.get('coins', 0)} PC\n"
         f"🎴 *Your Cards:* {cards_str}\n"
+        f"⚡ *God Card Uses Today:* {god_uses_today}/3\n"
         f"✨ *Status:* {status_str}"
     )
     await send_safe_message(update.message, message, parse_mode='MarkdownV2')
@@ -1354,6 +1358,17 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         user_data = get_player_data(user.id)
         if not user_data: return
 
+        # Check daily God card usage limit (Max 3 per day)
+        from datetime import datetime
+        today_str = datetime.utcnow().strftime('%Y-%m-%d')
+        user_status = user_data.get('status', {}) or {}
+        last_god_date = user_status.get('last_god_use_date', '')
+        god_uses_today = user_status.get('god_card_uses_today', 0) if last_god_date == today_str else 0
+
+        if god_uses_today >= 3:
+            await update.message.reply_text("❌ You have reached your limit of 3 God card uses for today! Try again tomorrow.")
+            return
+
         user_is_msgc = bool(user_data.get('msgc_registered', False))
         target_data = None
 
@@ -1421,16 +1436,19 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     except Exception as e:
                         logger.warning(f"Could not send Tribute DM to user {p['user_id']}: {e}")
             
-            tribute_gained = min(total_tribute, 50)
-            user_data['coins'] = user_data.get('coins', 0) + tribute_gained
-            effect_message = f"🛐 {user_name} used God's Tribute, collecting a total of {tribute_gained} coins (capped at max 50 PC) from all other players!"
+            user_data['coins'] = user_data.get('coins', 0) + total_tribute
+            effect_message = f"🛐 {user_name} used God's Tribute, collecting a total of {total_tribute} coins from all other players!"
         else:
             await update.message.reply_text("Invalid God power. Choose Blessing, Smite, or Tribute.")
             return
 
+        # Track daily God card usage
+        user_status['god_card_uses_today'] = god_uses_today + 1
+        user_status['last_god_use_date'] = today_str
+
         u_cards = list(user_data.get('cards', []))
         if 'god' in u_cards: u_cards.remove('god')
-        update_player_data(user.id, {'coins': user_data.get('coins', 0), 'cards': u_cards})
+        update_player_data(user.id, {'coins': user_data.get('coins', 0), 'cards': u_cards, 'status': user_status})
 
         god_gifs = POWER_CARDS['god'].get('gifs', {})
         gif_url = override_gif or (god_gifs.get(power) if isinstance(god_gifs, dict) else None)
