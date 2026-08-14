@@ -632,14 +632,16 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     
     if status.get('frenzy_active', 0) == 0:
         last_use = status.get('last_card_use_time', 0)
-        cooldown = 5
+        cooldown = 15 * 60
 
         if status.get('speed_active_until', 0) > now:
             cooldown /= 2
 
         if now - last_use < cooldown:
             remaining_time = int(cooldown - (now - last_use))
-            await update.message.reply_text(f"You must wait {remaining_time // 60}m {remaining_time % 60}s before using another card.")
+            mins = remaining_time // 60
+            secs = remaining_time % 60
+            await update.message.reply_text(f"You must wait {mins}m {secs}s before using another card.")
             return
 
     if status.get('shackled_until', 0) > time.time() and card_id != 'dispel':
@@ -1529,9 +1531,32 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     except (ValueError, IndexError):
         await update.message.reply_text("Usage: /givecard <CardName> @username")
+async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to reset all players' coins to 5."""
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    if not db:
+        await update.message.reply_text("Database not available.")
+        return
+
+    try:
+        all_players = get_all_players()
+        if not all_players:
+            await update.message.reply_text("No players found in database.")
+            return
+
+        for p in all_players:
+            if p.get('user_id'):
+                update_player_data(p['user_id'], {'coins': 5})
+
+        reply_msg = f"✅ Successfully reset coins to 5 for all {len(all_players)} players."
+        await update.message.reply_text(reply_msg)
+        await log_activity(context.bot, f"👑 Admin reset coins to 5 for all {len(all_players)} players.")
     except Exception as e:
-        logger.error(f"Error in /givecard command: {e}")
-        await update.message.reply_text("An error occurred while giving the card.")
+        logger.error(f"Error in /resetallcoins command: {e}")
+        await update.message.reply_text("An error occurred while resetting coins.")
 
 
 async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1569,6 +1594,7 @@ application.add_handler(CommandHandler("store", store_command))
 application.add_handler(CommandHandler("use", use_command))
 application.add_handler(CommandHandler("award", award_command))
 application.add_handler(CommandHandler("awardall", awardall_command))
+application.add_handler(CommandHandler("resetallcoins", resetallcoins_command))
 application.add_handler(CommandHandler("givecard", givecard_command))
 application.add_handler(CommandHandler("allplayers", all_players_command))
 application.add_handler(CallbackQueryHandler(handle_inspect_callback, pattern="^inspect_"))
