@@ -72,7 +72,7 @@ POWER_CARDS = {
     # Tier 1: Utility & Minor Effects
     'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZWZlbjB5YXZibzdnZmF4MG05Mm02dDc0ejZwcnJ2eHU5YTQwcWpweCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ornjIhZGFWpbcGMAU/giphy.gif'},
     'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2JkamxzaTNwMXo4ZXJreHl5a3M5dnFxMGowNTdsbm9sbmRpbnhhOSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bufkPz3LRof205G/giphy.gif'},
-    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
+    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 20, 'icon': '👼', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
     'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWFwbWJkYmZsN3Bmbm03aTM1NXh4NWQ3Njd4aDM5bDJyczZlODA5ZCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Kfg01zJWGDMT6/giphy.gif'},
     'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTdyZng0bzloNnlvajdzdDIxc2VjMjl2OTN4MW9wdzlmbHZ0amd2ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Loe03BsYRrv13l8h9q/giphy.gif'},
     'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJsaXhoOTRsc2V6dHU0YnFyNTl6dHR6d2FoZnM1NXZoMjU2YnU5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l3vRl0hL5yTjuOFji/giphy.gif'},
@@ -827,6 +827,9 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 return
     
     if card_id == 'double_or_nothing':
+        if player_data.get('coins', 0) < 40:
+            await update.message.reply_text("❌ You need at least 40 Power Coins to trigger Double or Nothing!")
+            return
         await handle_double_or_nothing_challenge(update, context, user, target_user)
         return
 
@@ -1418,8 +1421,9 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     except Exception as e:
                         logger.warning(f"Could not send Tribute DM to user {p['user_id']}: {e}")
             
-            user_data['coins'] = user_data.get('coins', 0) + total_tribute
-            effect_message = f"🛐 {user_name} used God's Tribute, collecting a total of {total_tribute} coins from all other players!"
+            tribute_gained = min(total_tribute, 50)
+            user_data['coins'] = user_data.get('coins', 0) + tribute_gained
+            effect_message = f"🛐 {user_name} used God's Tribute, collecting a total of {tribute_gained} coins (capped at max 50 PC) from all other players!"
         else:
             await update.message.reply_text("Invalid God power. Choose Blessing, Smite, or Tribute.")
             return
