@@ -1883,7 +1883,7 @@ async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
 
 async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to reset all players' coins to 5."""
-    if update.effective_user.id != ADMIN_USER_ID:
+    if not is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
         return
 
@@ -1899,7 +1899,7 @@ async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TY
 
         for p in all_players:
             if p.get('user_id'):
-                update_player_data(p['user_id'], {'coins': 5})
+                update_player_data(p['user_id'], {'coins': 5, 'cards': []})
 
         reply_msg = f"✅ Successfully reset coins to 5 for all {len(all_players)} players."
         await update.message.reply_text(reply_msg)
@@ -1910,7 +1910,7 @@ async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Central command dispatcher to trigger any admin event."""
-    if update.effective_user.id != ADMIN_USER_ID:
+    if not is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
         return
     
@@ -1976,7 +1976,7 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to clear all active events."""
-    if update.effective_user.id != ADMIN_USER_ID:
+    if not is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
         return
 
