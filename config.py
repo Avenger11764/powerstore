@@ -1,5 +1,8 @@
-TELEGRAM_BOT_TOKEN = "8182150838:AAHRXRyPt4a58tZZYx7JlTRvIy8LveRl7NU"
+import os
+
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8778408345:AAG_QYL1ZxNmO7oCYV2mFkUeQIST6T7mKPY")
+ADMIN_USER_IDS = [7602825139, 1253445521]
 ADMIN_USER_ID = 7602825139
-SUPABASE_URL = "https://dswfykxlujencvisaqig.supabase.co"
-SUPABASE_KEY = "sb_publishable_ANpPALQTVkBMDdgUhjNZLg_KSBQj73Z"
-LOG_CHANNEL_ID = "-1002839805882"
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://dswfykxlujencvisaqig.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_ANpPALQTVkBMDdgUhjNZLg_KSBQj73Z")
+LOG_CHANNEL_ID = os.environ.get("LOG_CHANNEL_ID", "-1002839805882")

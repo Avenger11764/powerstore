@@ -22,10 +22,31 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or getattr(config, "SUPABASE_URL",
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or getattr(config, "SUPABASE_KEY", None)
 LOG_CHANNEL_ID = os.environ.get("LOG_CHANNEL_ID") or getattr(config, "LOG_CHANNEL_ID", None)
 
-if not TELEGRAM_BOT_TOKEN or not ADMIN_USER_ID_VAL:
-    raise ValueError("Missing required environment variables or config settings: TELEGRAM_BOT_TOKEN, ADMIN_USER_ID")
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("Missing required environment variable: TELEGRAM_BOT_TOKEN")
 
-ADMIN_USER_ID = int(ADMIN_USER_ID_VAL)
+ADMIN_USER_IDS = [7602825139, 1253445521]
+if ADMIN_USER_ID_VAL:
+    try:
+        val = int(ADMIN_USER_ID_VAL)
+        if val not in ADMIN_USER_IDS:
+            ADMIN_USER_IDS.append(val)
+    except ValueError:
+        pass
+
+if hasattr(config, "ADMIN_USER_IDS"):
+    for aid in config.ADMIN_USER_IDS:
+        if int(aid) not in ADMIN_USER_IDS:
+            ADMIN_USER_IDS.append(int(aid))
+
+ADMIN_USER_ID = ADMIN_USER_IDS[0]
+
+def is_admin(user_id: int) -> bool:
+    """Checks if a user ID is an authorized admin."""
+    try:
+        return int(user_id) in ADMIN_USER_IDS
+    except Exception:
+        return False
 
 # --- SETUP ---
 logging.basicConfig(
@@ -49,41 +70,41 @@ except Exception as e:
 # --- CARD DEFINITIONS ---
 POWER_CARDS = {
     # Tier 1: Utility & Minor Effects
-    'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZWZlbjB5YXZibzdnZmF4MG05Mm02dDc0ejZwcnJ2eHU5YTQwcWpweCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ornjIhZGFWpbcGMAU/giphy.gif'},
-    'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2JkamxzaTNwMXo4ZXJreHl5a3M5dnFxMGowNTdsbm9sbmRpbnhhOSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bufkPz3LRof205G/giphy.gif'},
-    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
-    'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWFwbWJkYmZsN3Bmbm03aTM1NXh4NWQ3Njd4aDM5bDJyczZlODA5ZCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Kfg01zJWGDMT6/giphy.gif'},
-    'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTdyZng0bzloNnlvajdzdDIxc2VjMjl2OTN4MW9wdzlmbHZ0amd2ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Loe03BsYRrv13l8h9q/giphy.gif'},
-    'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJsaXhoOTRsc2V6dHU0YnFyNTl6dHR6d2FoZnM1NXZoMjU2YnU5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l3vRl0hL5yTjuOFji/giphy.gif'},
-    'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNzQ1bmc2MW1iMXFlYjRvN2JteW9sNXczOWxtNjU3MzFhbmIzZm0zdCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/30VBSGB7QW1RJpNcHO/giphy.gif'},
+    'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZWZlbjB5YXZibzdnZmF4MG05Mm02dDc0ejZwcnJ2eHU5YTQwcWpweCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ornjIhZGFWpbcGMAU/giphy.gif'},
+    'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2JkamxzaTNwMXo4ZXJreHl5a3M5dnFxMGowNTdsbm9sbmRpbnhhOSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bufkPz3LRof205G/giphy.gif'},
+    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 10, 'icon': '👼', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
+    'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWFwbWJkYmZsN3Bmbm03aTM1NXh4NWQ3Njd4aDM5bDJyczZlODA5ZCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Kfg01zJWGDMT6/giphy.gif'},
+    'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTdyZng0bzloNnlvajdzdDIxc2VjMjl2OTN4MW9wdzlmbHZ0amd2ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Loe03BsYRrv13l8h9q/giphy.gif'},
+    'black_market': {'name': 'Black Market', 'description': 'For 1 hour, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJsaXhoOTRsc2V6dHU0YnFyNTl6dHR6d2FoZnM1NXZoMjU2YnU5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l3vRl0hL5yTjuOFji/giphy.gif'},
+    'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNzQ1bmc2MW1iMXFlYjRvN2JteW9sNXczOWxtNjU3MzFhbmIzZm0zdCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/30VBSGB7QW1RJpNcHO/giphy.gif'},
     
     # Tier 2: Direct Interaction
-    'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3Nm41eWMyOWk0bmZodzc0c2xkZmJ4MWNyMnUyeW5vajc2MGowZGFzbiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ASM4IvHzkop00e6sUN/giphy.gif'},
-    'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 30, 'icon': '🌀', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcXphOWVramc1bXo4a2tqZ2JtYjF1OG45bzFxODlpYTc2Mm9hZml2cyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/10DnwPMOWFxn7G/giphy.gif'},
-    'shackle': {'name': 'Shackle', 'description': 'For 1 hour, your target is unable to use any cards.', 'price': 30, 'icon': '⛓️', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcnF4eW1oNnBtazZnMHozNTFmdjcxazVlODJqZTdvaTUzYm90ZmJmNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hZfLN9xZyuALtcseXG/giphy.gif'},
-    'spotlight': {'name': 'Spotlight', 'description': 'Publicly reveal a target player\'s entire card inventory to the group.', 'price': 25, 'icon': '💡', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWZqMDIzODFlMWdldjh3eDJrbDdmbzN5cms3MHhyc2RjM29nczQ0aCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/cEy0W6cMR584tK1vbM/giphy.gif'},
-    'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdzgwcGQwdzljMXdqeWNzMzdmNWEyc2Zxb3l6bTZ4YzhndXR0YjczMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3oxRmvU3GAJay6F60g/giphy.gif'},
-    'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3VkZ3M3a3U0ampwNTgxN2dkeTgzZmFpeGg3M254NGNjMGdvaXhmbyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ohzdNDknsTEB1dNny/giphy.gif'},
-    'dispel': {'name': 'Dispel', 'description': 'Immediately removes Shackle and personal Inflation effects from yourself.', 'price': 30, 'icon': '💨', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWtpczRwbnhxYjFxZmUyMGJyeW5rOXY4YTZ0NmxvNWg5N2NhM2JtdSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3bJr49ky73noj6Pb64/giphy.gif'},
-    'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 20, 'icon': '🎲', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeXk2cXMyODB4bDNhYnI0NXlmMng3eWNvaW5paXhxamUzOGE0MDZqcCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26uf2YTgF5upXUTm0/giphy.gif'},
+    'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'tier': 2, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3Nm41eWMyOWk0bmZodzc0c2xkZmJ4MWNyMnUyeW5vajc2MGowZGFzbiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ASM4IvHzkop00e6sUN/giphy.gif'},
+    'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 30, 'icon': '🌀', 'tier': 2, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcXphOWVramc1bXo4a2tqZ2JtYjF1OG45bzFxODlpYTc2Mm9hZml2cyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/10DnwPMOWFxn7G/giphy.gif'},
+    'shackle': {'name': 'Shackle', 'description': 'For 1 hour, your target is unable to use any cards.', 'price': 30, 'icon': '⛓️', 'tier': 2, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcnF4eW1oNnBtazZnMHozNTFmdjcxazVlODJqZTdvaTUzYm90ZmJmNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hZfLN9xZyuALtcseXG/giphy.gif'},
+    'spotlight': {'name': 'Spotlight', 'description': 'Publicly reveal a target player\'s entire card inventory to the group.', 'price': 25, 'icon': '💡', 'tier': 2, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWZqMDIzODFlMWdldjh3eDJrbDdmbzN5cms3MHhyc2RjM29nczQ0aCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/cEy0W6cMR584tK1vbM/giphy.gif'},
+    'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 25, 'icon': '⏳', 'tier': 2, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdzgwcGQwdzljMXdqeWNzMzdmNWEyc2Zxb3l6bTZ4YzhndXR0YjczMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3oxRmvU3GAJay6F60g/giphy.gif'},
+    'mirage': {'name': 'Mirage', 'description': 'For 1 hour, Vision/Spotlight used on you will show a fake hand.', 'price': 25, 'icon': '🏜️', 'tier': 2, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3VkZ3M3a3U0ampwNTgxN2dkeTgzZmFpeGg3M254NGNjMGdvaXhmbyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ohzdNDknsTEB1dNny/giphy.gif'},
+    'dispel': {'name': 'Dispel', 'description': 'Immediately removes Shackle and personal Inflation effects from yourself.', 'price': 30, 'icon': '💨', 'tier': 2, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWtpczRwbnhxYjFxZmUyMGJyeW5rOXY4YTZ0NmxvNWg5N2NhM2JtdSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3bJr49ky73noj6Pb64/giphy.gif'},
+    'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 20, 'icon': '🎲', 'tier': 2, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeXk2cXMyODB4bDNhYnI0NXlmMng3eWNvaW5paXhxamUzOGE0MDZqcCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26uf2YTgF5upXUTm0/giphy.gif'},
 
     # Tier 3: Powerful Effects
-    'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 40, 'icon': '🛡️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHBtbW54MHliaHhuMjlmcG1zb3BsMG44NW12cHhuOHlwaWtoeW1idCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/dyKyTBu6adRKuJpmWU/giphy.gif'},
-    'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 50, 'icon': '🪤', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbHk5MGNtY2x6bDhtcW9hc3M5cjdheTgydjZ0eGc5aXltc2RjNTR5ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/XYCHHBtZxfmAU/giphy.gif'},
-    'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjI4amMyaGp5aTdzd2JrdDdocGFiaGtsc2IycDl4Y2RjdTZ3ZGxmdyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hje9Yxu2SNtNlx80oZ/giphy.gif'},
-    'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3eG1iMTlsbnk5dWp5azNocWQyNmtyd3l0enY2cWIxdDUyYmpyMnV4byZlcD12MV9naWZzX3NlYXJjaCZjdD1n/n6EMXWDjT9G8Q0EMCQ/giphy.gif'},
-    'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmE5bGtkOGttb2c1Z29tbm9yOW5obnp0MXRtM2x5MGsxMnNob3pvOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pw1lmX78sDOyRvMKhZ/giphy.gif'},
-    'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGQwdW5wajFuOTI5N3F6dzJlaWE3aWd2NDJzdDVnYzE5MjFja2lpcSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Th9FMIgIgu9hK/giphy.gif'},
-    'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGVyMXk3dzNyOGRqeWsxbm9zejZ4N3QzcXF4ajQ2NXh0bjJwcHlsbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HWVx61TKUD7nGdruml/giphy.gif'},
-    'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExenVqNmVweWFwdzJiOWMxNmN0YzFkZHB2dTQ3bXIzeGlzc28xdmhvayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HUtsjiqzv1M9a/giphy.gif'},
-    'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGtsejkyemNsbWhseXpzaGIxOTJ6eDNheGNoYmp4YjJ1Yjg5dGQ1NiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/gKxSdzHFNUpZ8EKirE/giphy.gif'},
-    'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 50, 'icon': '🎯', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaXNvbGIwMTRvb2FmcmtuaGs4bXZ4MDZnNTMzOWg1ZTRvbHBxbm1qYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/8uvgnTDSSpcVdVMjmf/giphy.gif'},
-    'vortex': {'name': 'Vortex', 'description': 'All players in the game (including you) must immediately discard one random card.', 'price': 30, 'icon': '🌪️', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmRyYXRvb2dmMTJnZGlqOHVzamcxM3Q3cHEzN2U0MGV2eHdwNmticSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/uWXDBmVYdByWreOuRs/giphy.gif'},
-    'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 75, 'icon': '❓', 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJ4b3FrYWlmNGQ4YjV1dGNoMW9zbDlpcGJ2OWlxOTZob2xzbmZubSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1zR9zWe9tzwoZi84ws/giphy.gif'},
-    'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 35, 'icon': '🔀', 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcXA4MW0ybDRieXk4ODFwMXZzbDhxY2phYXU0cWFuMGdtcHZoYnVieiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/fcODRi10teFrO/giphy.gif'},
+    'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 40, 'icon': '🛡️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHBtbW54MHliaHhuMjlmcG1zb3BsMG44NW12cHhuOHlwaWtoeW1idCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/dyKyTBu6adRKuJpmWU/giphy.gif'},
+    'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 50, 'icon': '🪤', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbHk5MGNtY2x6bDhtcW9hc3M5cjdheTgydjZ0eGc5aXltc2RjNTR5ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/XYCHHBtZxfmAU/giphy.gif'},
+    'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjI4amMyaGp5aTdzd2JrdDdocGFiaGtsc2IycDl4Y2RjdTZ3ZGxmdyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hje9Yxu2SNtNlx80oZ/giphy.gif'},
+    'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3eG1iMTlsbnk5dWp5azNocWQyNmtyd3l0enY2cWIxdDUyYmpyMnV4byZlcD12MV9naWZzX3NlYXJjaCZjdD1n/n6EMXWDjT9G8Q0EMCQ/giphy.gif'},
+    'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmE5bGtkOGttb2c1Z29tbm9yOW5obnp0MXRtM2x5MGsxMnNob3pvOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pw1lmX78sDOyRvMKhZ/giphy.gif'},
+    'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGQwdW5wajFuOTI5N3F6dzJlaWE3aWd2NDJzdDVnYzE5MjFja2lpcSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Th9FMIgIgu9hK/giphy.gif'},
+    'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGVyMXk3dzNyOGRqeWsxbm9zejZ4N3QzcXF4ajQ2NXh0bjJwcHlsbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HWVx61TKUD7nGdruml/giphy.gif'},
+    'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExenVqNmVweWFwdzJiOWMxNmN0YzFkZHB2dTQ3bXIzeGlzc28xdmhvayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HUtsjiqzv1M9a/giphy.gif'},
+    'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGtsejkyemNsbWhseXpzaGIxOTJ6eDNheGNoYmp4YjJ1Yjg5dGQ1NiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/gKxSdzHFNUpZ8EKirE/giphy.gif'},
+    'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 50, 'icon': '🎯', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaXNvbGIwMTRvb2FmcmtuaGs4bXZ4MDZnNTMzOWg1ZTRvbHBxbm1qYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/8uvgnTDSSpcVdVMjmf/giphy.gif'},
+    'vortex': {'name': 'Vortex', 'description': 'All players in the game (including you) must immediately discard one random card.', 'price': 30, 'icon': '🌪️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmRyYXRvb2dmMTJnZGlqOHVzamcxM3Q3cHEzN2U0MGV2eHdwNmticSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/uWXDBmVYdByWreOuRs/giphy.gif'},
+    'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 75, 'icon': '❓', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJ4b3FrYWlmNGQ4YjV1dGNoMW9zbDlpcGJ2OWlxOTZob2xzbmZubSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1zR9zWe9tzwoZi84ws/giphy.gif'},
+    'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 35, 'icon': '🔀', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcXA4MW0ybDRieXk4ODFwMXZzbDhxY2phYXU0cWFuMGdtcHZoYnVieiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/fcODRi10teFrO/giphy.gif'},
 
     # Special Tier: Game-Changing Power
-    'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 80, 'icon': '🛐', 'requires_target': False, 'gifs': {'blessing': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN3V3YXZxa3g3Nm41ODZnbjNzbDl2ZXFtN2ttNm1nZG13dThmcmN2MiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/zItSCrxIAg14zNVtjP/giphy.gif', 'smite': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNnNpbDJmMGRnZGIzZGswYmx0OXZiem5jYnNnZHMydzI5YXE0cWlhcyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/RKUVT8fPMsRfa/giphy.gif', 'tribute': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNWc1cGxveGQ5NmFmZmd6YWhua2gyZzNjdjc2Mm84Nm01aXBjd3ZycCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/dAhtjvu5VYan5RjU2r/giphy.gif'}},
+    'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 80, 'icon': '🛐', 'tier': 4, 'requires_target': False, 'gifs': {'blessing': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN3V3YXZxa3g3Nm41ODZnbjNzbDl2ZXFtN2ttNm1nZG13dThmcmN2MiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/zItSCrxIAg14zNVtjP/giphy.gif', 'smite': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNnNpbDJmMGRnZGIzZGswYmx0OXZiem5jYnNnZHMydzI5YXE0cWlhcyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/RKUVT8fPMsRfa/giphy.gif', 'tribute': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNWc1cGxveGQ5NmFmZmd6YWhua2gyZzNjdjc2Mm84Nm01aXBjd3ZycCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/dAhtjvu5VYan5RjU2r/giphy.gif'}},
 }
 
 NEGATIVE_CARDS = {'flame', 'glitch', 'devil', 'swap', 'spotlight', 'purge', 'amnesia', 'shackle', 'steal', 'double_or_nothing'}
@@ -338,24 +359,44 @@ def ensure_player_registered(user_id: int, telegram_user=None) -> dict:
         player_data = get_player_data(user_id) or new_player
     return player_data
 
+GLOBAL_GAME_STATE = {}
+
 def get_game_state() -> dict:
-    """Retrieves global game state from Supabase."""
-    if not db: return {}
-    try:
-        response = db.table('game_state').select('*').eq('id', 'game_data').execute()
-        if response.data and len(response.data) > 0:
-            return response.data[0]
-        return {}
-    except Exception as e:
-        logger.error(f"Error fetching game state: {e}")
-        return {}
+    """Retrieves global game state, merging in-memory state with Supabase."""
+    state = {**GLOBAL_GAME_STATE}
+    if db:
+        try:
+            res = db.table('game_state').select('*').execute()
+            if res and hasattr(res, 'data') and res.data:
+                for row in res.data:
+                    if 'key' in row and 'data' in row:
+                        val = row['data']
+                        if isinstance(val, dict):
+                            state.update(val)
+                        else:
+                            state[row['key']] = val
+                    else:
+                        state.update(row)
+        except Exception as e:
+            logger.warning(f"Failed to fetch game_state from Supabase: {e}")
+    return state
 
 def update_game_state(updates: dict):
-    """Updates global game state in Supabase."""
+    """Updates global game state both in-memory and in Supabase."""
+    GLOBAL_GAME_STATE.update(updates)
     if not db: return
     try:
         payload = {'id': 'game_data', **updates}
-        db.table('game_state').upsert(payload).execute()
+        try:
+            db.table('game_state').upsert(payload, on_conflict='id').execute()
+        except Exception:
+            pass
+
+        for k, v in updates.items():
+            try:
+                db.table('game_state').upsert({'key': k, 'data': v}, on_conflict='key').execute()
+            except Exception:
+                pass
     except Exception as e:
         logger.error(f"Error updating game state: {e}")
 
@@ -514,7 +555,14 @@ def build_store_menu(user_id, telegram_user=None):
     black_market_active = player_status.get('black_market_until', 0) > time.time()
     is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
 
+    freebie_frenzy_active = game_state.get('freebie_frenzy_until', 0) > time.time()
+    bogo_active = game_state.get('bogo_active_until', 0) > time.time()
+
     text = "🛒 *Welcome to the Power Store\\!* \nSelect a card to view its details:"
+    if freebie_frenzy_active:
+        text += "\n\n🎁 *FREEBIE FRENZY Active\\! Tier 1 cards are FREE\\!*"
+    if bogo_active:
+        text += "\n\n🎁 *BOGO Event Active\\! Buy 1 card, get 1 FREE Tier 1/2 card\\!*"
     if black_market_active:
         text += "\n\n💰 *Black Market prices are active\\! All cards are 50% off for you\\!*"
     elif is_affected_by_inflation:
@@ -522,7 +570,10 @@ def build_store_menu(user_id, telegram_user=None):
 
     keyboard = []
     for card_id, card in POWER_CARDS.items():
-        button_text = f"{card['icon']} {card['name']}"
+        c_price = card['price']
+        if freebie_frenzy_active and card.get('tier') == 1 and card_id != 'angel':
+            c_price = 0
+        button_text = f"{card['icon']} {card['name']} ({c_price} PC)"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=f"inspect_{card_id}")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -556,9 +607,12 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
     is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
+    freebie_frenzy_active = game_state.get('freebie_frenzy_until', 0) > time.time()
 
     price = card['price']
-    if black_market_active:
+    if freebie_frenzy_active and card.get('tier') == 1 and card_id != 'angel':
+        price = 0
+    elif black_market_active:
         price = int(price * 0.5)
     elif is_affected_by_inflation:
         price = int(price * 2)
@@ -613,9 +667,12 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
     is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
+    freebie_frenzy_active = game_state.get('freebie_frenzy_until', 0) > time.time()
 
     price = card['price']
-    if black_market_active:
+    if freebie_frenzy_active and card.get('tier') == 1 and card_id != 'angel':
+        price = 0
+    elif black_market_active:
         price = int(price * 0.5)
     elif is_affected_by_inflation:
         price = int(price * 2)
@@ -627,9 +684,20 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     new_coins = current_coins - price
     new_cards = current_cards + [card_id]
+
+    bogo_active = game_state.get('bogo_active_until', 0) > time.time()
+    bonus_card_msg = ""
+    if bogo_active:
+        eligible_bogo = [cid for cid, c in POWER_CARDS.items() if c.get('tier') in [1, 2] and cid not in new_cards]
+        if eligible_bogo:
+            bogo_bonus_card = random.choice(eligible_bogo)
+            new_cards.append(bogo_bonus_card)
+            bonus_card_name = POWER_CARDS[bogo_bonus_card]['name']
+            bonus_card_msg = f"\n🎁 BOGO Bonus! You also received a FREE {bonus_card_name} card!"
+
     update_player_data(user_id, {'coins': new_coins, 'cards': new_cards})
 
-    result = f"✅ Success! You bought a {card['name']} card for {price} PC."
+    result = f"✅ Success! You bought a {card['name']} card for {price} PC.{bonus_card_msg}"
     await query.edit_message_text(text=result)
     await log_activity(context.bot, f"🛒 {query.from_user.first_name} bought a {card['name']} card.")
 
@@ -670,8 +738,12 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     now = time.time()
     status = player_data.get('status', {}) or {}
+    game_state = get_game_state()
+
+    # Rush Hour check: Disable card cooldown
+    rush_hour_active = game_state.get('rush_hour_until', 0) > now
     
-    if status.get('frenzy_active', 0) == 0:
+    if status.get('frenzy_active', 0) == 0 and not rush_hour_active:
         last_use = status.get('last_card_use_time', 0)
         cooldown = 15 * 60
 
@@ -684,6 +756,12 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             secs = remaining_time % 60
             await update.message.reply_text(f"You must wait {mins}m {secs}s before using another card.")
             return
+
+    # Truce check: Disable negative/targeted cards
+    truce_active = game_state.get('truce_until', 0) > now
+    if truce_active and (card_id in NEGATIVE_CARDS or POWER_CARDS[card_id].get('requires_target')):
+        await update.message.reply_text("🤝 A Truce has been called! Negative cards are disabled right now.")
+        return
 
     if status.get('shackled_until', 0) > time.time() and card_id != 'dispel':
         await update.message.reply_text("⛓️ You are shackled! You cannot use any cards right now (except Dispel).")
@@ -1382,7 +1460,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to view all player stats."""
-    if update.effective_user.id != ADMIN_USER_ID:
+    if not is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
         return
 
@@ -1403,9 +1481,10 @@ async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             coins = p.get('coins', 0)
             cards_list = [POWER_CARDS[cid]['name'] for cid in p.get('cards', []) if cid in POWER_CARDS]
             cards_str = escape_markdown_v2(", ".join(cards_list) if cards_list else "None")
+            msgc_tag = " [MSGC]" if bool(p.get('msgc_registered', False)) else ""
             
             report_lines.append(
-                f"\n👤 *@{safe_username}*\n"
+                f"\n👤 *@{safe_username}*{msgc_tag}\n"
                 f"    💰 Coins: {coins} PC\n"
                 f"    🎴 Cards: {cards_str}"
             )
@@ -1419,7 +1498,7 @@ async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to award coins to a player."""
-    if update.effective_user.id != ADMIN_USER_ID:
+    if not is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
         return
     
@@ -1469,7 +1548,7 @@ async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to award coins to all players."""
-    if update.effective_user.id != ADMIN_USER_ID:
+    if not is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
         return
 
@@ -1527,7 +1606,7 @@ async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to give a card to a player."""
-    if update.effective_user.id != ADMIN_USER_ID:
+    if not is_admin(update.effective_user.id):
         await update.message.reply_text("You are not authorized to use this command.")
         return
 
@@ -1572,6 +1651,236 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     except (ValueError, IndexError):
         await update.message.reply_text("Usage: /givecard <CardName> @username")
+
+async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to reset all players' coins to 5 and clear their cards."""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    if not db:
+        await update.message.reply_text("Database not available.")
+        return
+
+    try:
+        all_players = get_all_players()
+        if not all_players:
+            await update.message.reply_text("No players found in database.")
+            return
+
+        for p in all_players:
+            if p.get('user_id'):
+                update_player_data(p['user_id'], {'coins': 5, 'cards': []})
+
+        reply_msg = f"✅ Successfully reset all {len(all_players)} players to 5 coins and 0 cards."
+        await update.message.reply_text(reply_msg)
+        await log_activity(context.bot, f"👑 Admin reset all {len(all_players)} players to 5 coins and 0 cards.")
+    except Exception as e:
+        logger.error(f"Error in /resetallcoins command: {e}")
+        await update.message.reply_text("An error occurred while resetting coins.")
+
+async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Central command dispatcher to trigger any admin event."""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+    
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: /startevent <event_name>\n\n"
+            "Available Events (MSGC Registered Players Only):\n"
+            "• bogo - Free Tier 1 or 2 card with every store purchase (15 min)\n"
+            "• secretsanta - MSGC players gift cards or coins to each other\n"
+            "• rushhour - All card usage cooldowns disabled for MSGC players (1 hour)\n"
+            "• truce - All negative cards disabled for MSGC players (15 min)\n"
+            "• gambit - Every MSGC registered player receives a random non-God card\n"
+            "• coinrush - Messages in group chats drop bonus coins for MSGC players (10 min)\n"
+            "• freebiefrenzy - Tier 1 cards are FREE in the store for MSGC players (15 min)"
+        )
+        return
+        
+    event_name = context.args[0].lower()
+    now = time.time()
+
+    if event_name == 'bogo':
+        update_game_state({'bogo_active_until': now + (15 * 60)})
+        await broadcast_event_message(context.bot, "🎁 *BOGO EVENT STARTED!* 🎁\n\nFor 15 minutes, store purchases for MSGC registered players include a FREE Tier 1 or 2 card!", context)
+        await update.message.reply_text("✅ BOGO event started for 15 minutes.")
+
+    elif event_name == 'secretsanta':
+        await update.message.reply_text("🎅 Initiating Secret Santa...")
+        await execute_secret_santa_event(context.bot, context)
+
+    elif event_name == 'rushhour':
+        update_game_state({'rush_hour_until': now + (60 * 60)})
+        await broadcast_event_message(context.bot, "⏰ *RUSH HOUR HAS BEGUN!* ⏰\n\nFor 1 hour, all card cooldowns are disabled for MSGC registered players!", context)
+        await update.message.reply_text("✅ Rush Hour started for 1 hour.")
+
+    elif event_name == 'truce':
+        update_game_state({'truce_until': now + (15 * 60)})
+        await broadcast_event_message(context.bot, "🤝 *A TRUCE HAS BEEN CALLED!* 🤝\n\nFor 15 minutes, negative cards are disabled for MSGC registered players!", context)
+        await update.message.reply_text("✅ Truce event started for 15 minutes.")
+
+    elif event_name == 'gambit':
+        await update.message.reply_text("🎲 Initiating Gambit...")
+        await execute_gambit_event(context.bot, context)
+
+    elif event_name == 'coinrush':
+        duration = 10 * 60
+        update_game_state({'coin_rush_until': now + duration})
+        
+        async def coin_rush_end(ctx: ContextTypes.DEFAULT_TYPE):
+            await broadcast_event_message(ctx.bot, "💰 *Coin Rush has ended!* 💰\n\nThanks for participating!", ctx)
+            
+        if context.job_queue:
+            context.job_queue.run_once(coin_rush_end, duration)
+        await broadcast_event_message(context.bot, "💰 *COIN RUSH!* 💰\n\nFor 10 minutes, messages in group chats drop free Power Coins for MSGC registered players!", context)
+        await update.message.reply_text("✅ Coin Rush started for 10 minutes.")
+
+    elif event_name == 'freebiefrenzy':
+        update_game_state({'freebie_frenzy_until': now + (15 * 60)})
+        await broadcast_event_message(context.bot, "🎁 *FREEBIE FRENZY!* 🎁\n\nFor 15 minutes, Tier 1 cards (except Angel) are FREE in the store for MSGC registered players!", context)
+        await update.message.reply_text("✅ Freebie Frenzy started for 15 minutes.")
+
+    else:
+        await update.message.reply_text(f"Unknown event: '{event_name}'. Use /startevent to see available events.")
+
+async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to clear all active events."""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    update_game_state({
+        'bogo_active_until': 0,
+        'rush_hour_until': 0,
+        'truce_until': 0,
+        'coin_rush_until': 0,
+        'freebie_frenzy_until': 0
+    })
+    await update.message.reply_text("🛑 All active events have been ended.")
+
+
+# --- EVENT SYSTEM ---
+
+async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.DEFAULT_TYPE = None):
+    """Utility to broadcast an event announcement to tracked group chats and activity log."""
+    await log_activity(bot, message, title="🎉 Power Store Event!")
+    
+    group_chat_ids = set()
+    if context and hasattr(context, 'bot_data'):
+        group_chat_ids.update(context.bot_data.get('group_chat_ids', set()))
+    
+    game_state = get_game_state()
+    stored_chats = game_state.get('group_chat_ids', [])
+    if isinstance(stored_chats, list):
+        group_chat_ids.update(stored_chats)
+
+    for chat_id in group_chat_ids:
+        try:
+            await bot.send_message(chat_id=chat_id, text=message)
+        except Exception as e:
+            logger.error(f"Failed to send event broadcast to chat {chat_id}: {e}")
+
+async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
+    """Executes Secret Santa card/coin gift exchange across all MSGC registered players."""
+    all_players = get_all_players()
+    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False))]
+
+    if len(msgc_players) < 2:
+        logger.info("Secret Santa cancelled: Less than 2 MSGC registered players.")
+        await broadcast_event_message(bot, "🎅 *Secret Santa Cancelled:* At least 2 MSGC registered players are required.", context)
+        return
+
+    player_ids = [p.get('user_id') for p in msgc_players if p.get('user_id')]
+    player_map = {p.get('user_id'): p for p in msgc_players if p.get('user_id')}
+
+    if len(player_ids) < 2:
+        return
+
+    receivers = player_ids[:]
+    random.shuffle(receivers)
+
+    # Prevent self-gifting
+    for i in range(len(player_ids)):
+        if player_ids[i] == receivers[i]:
+            swap_idx = (i + 1) % len(player_ids)
+            receivers[i], receivers[swap_idx] = receivers[swap_idx], receivers[i]
+
+    summary_messages = ["🎁 *Secret Santa Event!* 🎁\n\nGifts have been exchanged between MSGC registered players:"]
+    eligible_santa_cards = [cid for cid, c in POWER_CARDS.items() if c.get('tier') in [1, 2]]
+
+    for i, sender_id in enumerate(player_ids):
+        receiver_id = receivers[i]
+        sender_data = player_map[sender_id]
+        receiver_data = player_map[receiver_id]
+
+        sender_name = sender_data.get('first_name') or sender_data.get('username') or 'A player'
+        receiver_name = receiver_data.get('first_name') or receiver_data.get('username') or 'Another player'
+        
+        sender_cards = list(sender_data.get('cards', []))
+        receiver_cards = list(receiver_data.get('cards', []))
+        eligible_cards = [card for card in sender_cards if card in eligible_santa_cards]
+
+        try:
+            if eligible_cards:
+                card_to_send = random.choice(eligible_cards)
+                sender_cards.remove(card_to_send)
+                if card_to_send not in receiver_cards:
+                    receiver_cards.append(card_to_send)
+
+                update_player_data(sender_id, {'cards': sender_cards})
+                update_player_data(receiver_id, {'cards': receiver_cards})
+
+                card_name = POWER_CARDS.get(card_to_send, {}).get('name', card_to_send)
+                summary_messages.append(f"🎁 {sender_name} gifted a {card_name} card to {receiver_name}!")
+            else:
+                sender_coins = sender_data.get('coins', 0)
+                coins_to_send = min(50, sender_coins)
+                if coins_to_send > 0:
+                    receiver_coins = receiver_data.get('coins', 0)
+                    update_player_data(sender_id, {'coins': sender_coins - coins_to_send})
+                    update_player_data(receiver_id, {'coins': receiver_coins + coins_to_send})
+                    summary_messages.append(f"💰 {sender_name} gifted {coins_to_send} PC to {receiver_name}!")
+                else:
+                    summary_messages.append(f"💨 {sender_name} had no gifts/coins to give to {receiver_name}.")
+        except Exception as e:
+            logger.error(f"Error transferring Secret Santa gift ({sender_id} -> {receiver_id}): {e}")
+
+    await broadcast_event_message(bot, "\n".join(summary_messages), context)
+
+async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
+    """Executes Gambit event: awards a random non-God card to every MSGC registered player."""
+    all_players = get_all_players()
+    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False))]
+
+    if not msgc_players:
+        logger.info("Gambit cancelled: No MSGC registered players found.")
+        await broadcast_event_message(bot, "🎲 *Gambit Cancelled:* No MSGC registered players found.", context)
+        return
+
+    gambit_cards = [card_id for card_id in POWER_CARDS if card_id != 'god']
+    summary_messages = ["🎲 *Gambit Event!* 🎲\n\nEvery MSGC registered player receives a random card!"]
+
+    for player in msgc_players:
+        player_id = player.get('user_id')
+        if not player_id: continue
+        player_name = player.get('first_name') or player.get('username') or 'Player'
+        player_cards = list(player.get('cards', []))
+
+        try:
+            random_card = random.choice(gambit_cards)
+            card_name = POWER_CARDS.get(random_card, {}).get('name', random_card)
+            if random_card not in player_cards:
+                player_cards.append(random_card)
+
+            update_player_data(player_id, {'cards': player_cards})
+            summary_messages.append(f"🎁 {player_name} received a {card_name} card!")
+        except Exception as e:
+            logger.error(f"Error awarding Gambit card to player {player_id}: {e}")
+
+    await broadcast_event_message(bot, "\n".join(summary_messages), context)
+
 async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to reset all players' coins to 5."""
     if update.effective_user.id != ADMIN_USER_ID:
@@ -1598,6 +1907,111 @@ async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception as e:
         logger.error(f"Error in /resetallcoins command: {e}")
         await update.message.reply_text("An error occurred while resetting coins.")
+
+async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Central command dispatcher to trigger any admin event."""
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+    
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: /startevent <event_name>\n\n"
+            "Available Events:\n"
+            "• bogo - Free Tier 1 or 2 card with every store purchase (15 min)\n"
+            "• secretsanta - Players gift cards or coins to each other\n"
+            "• rushhour - All card usage cooldowns disabled (1 hour)\n"
+            "• truce - All negative cards disabled (15 min)\n"
+            "• gambit - Every player receives a random non-God card\n"
+            "• coinrush - Messages in group chats drop bonus coins (10 min)\n"
+            "• freebiefrenzy - Tier 1 cards are FREE in the store (15 min)"
+        )
+        return
+        
+    event_name = context.args[0].lower()
+    now = time.time()
+
+    if event_name == 'bogo':
+        update_game_state({'bogo_active_until': now + (15 * 60)})
+        await broadcast_event_message(context.bot, "🎁 *BOGO EVENT STARTED!* 🎁\n\nFor 15 minutes, store purchases include a FREE Tier 1 or 2 card!", context)
+        await update.message.reply_text("✅ BOGO event started for 15 minutes.")
+
+    elif event_name == 'secretsanta':
+        await update.message.reply_text("🎅 Initiating Secret Santa...")
+        await execute_secret_santa_event(context.bot, context)
+
+    elif event_name == 'rushhour':
+        update_game_state({'rush_hour_until': now + (60 * 60)})
+        await broadcast_event_message(context.bot, "⏰ *RUSH HOUR HAS BEGUN!* ⏰\n\nFor 1 hour, all card cooldowns are disabled!", context)
+        await update.message.reply_text("✅ Rush Hour started for 1 hour.")
+
+    elif event_name == 'truce':
+        update_game_state({'truce_until': now + (15 * 60)})
+        await broadcast_event_message(context.bot, "🤝 *A TRUCE HAS BEEN CALLED!* 🤝\n\nFor 15 minutes, negative cards are disabled!", context)
+        await update.message.reply_text("✅ Truce event started for 15 minutes.")
+
+    elif event_name == 'gambit':
+        await update.message.reply_text("🎲 Initiating Gambit...")
+        await execute_gambit_event(context.bot, context)
+
+    elif event_name == 'coinrush':
+        duration = 10 * 60
+        update_game_state({'coin_rush_until': now + duration})
+        
+        async def coin_rush_end(ctx: ContextTypes.DEFAULT_TYPE):
+            await broadcast_event_message(ctx.bot, "💰 *Coin Rush has ended!* 💰\n\nThanks for participating!", ctx)
+            
+        if context.job_queue:
+            context.job_queue.run_once(coin_rush_end, duration)
+        await broadcast_event_message(context.bot, "💰 *COIN RUSH!* 💰\n\nFor 10 minutes, messages in group chats drop free Power Coins!", context)
+        await update.message.reply_text("✅ Coin Rush started for 10 minutes.")
+
+    elif event_name == 'freebiefrenzy':
+        update_game_state({'freebie_frenzy_until': now + (15 * 60)})
+        await broadcast_event_message(context.bot, "🎁 *FREEBIE FRENZY!* 🎁\n\nFor 15 minutes, Tier 1 cards (except Angel) are FREE in the store!", context)
+        await update.message.reply_text("✅ Freebie Frenzy started for 15 minutes.")
+
+    else:
+        await update.message.reply_text(f"Unknown event: '{event_name}'. Use /startevent to see available events.")
+
+async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to clear all active events."""
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    update_game_state({
+        'bogo_active_until': 0,
+        'rush_hour_until': 0,
+        'truce_until': 0,
+        'coin_rush_until': 0,
+        'freebie_frenzy_until': 0,
+        'faction_war': {}
+    })
+    await update.message.reply_text("🛑 All active events have been ended.")
+
+async def handle_group_message_and_coin_rush(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Tracks active group chat IDs and processes Coin Rush random coin drops."""
+    chat = update.effective_chat
+    user = update.effective_user
+    if not chat or not user or user.is_bot:
+        return
+
+    if chat.type in ['group', 'supergroup']:
+        group_chats = context.bot_data.setdefault('group_chat_ids', set())
+        group_chats.add(chat.id)
+
+    game_state = get_game_state()
+    if game_state.get('coin_rush_until', 0) > time.time():
+        if random.random() < 0.25:
+            drop = random.randint(2, 5)
+            p_data = get_player_data(user.id)
+            if p_data:
+                update_player_data(user.id, {'coins': p_data.get('coins', 0) + drop})
+                try:
+                    await update.message.reply_text(f"💰 *Coin Rush Drop!* {user.first_name} received +{drop} Power Coins!")
+                except Exception:
+                    pass
 
 
 async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1636,11 +2050,14 @@ application.add_handler(CommandHandler("use", use_command))
 application.add_handler(CommandHandler("award", award_command))
 application.add_handler(CommandHandler("awardall", awardall_command))
 application.add_handler(CommandHandler("resetallcoins", resetallcoins_command))
+application.add_handler(CommandHandler("startevent", startevent_command))
+application.add_handler(CommandHandler("endevent", endevent_command))
 application.add_handler(CommandHandler("givecard", givecard_command))
 application.add_handler(CommandHandler("allplayers", all_players_command))
 application.add_handler(CallbackQueryHandler(handle_inspect_callback, pattern="^inspect_"))
 application.add_handler(CallbackQueryHandler(handle_back_to_store_callback, pattern="^back_to_store$"))
 application.add_handler(CallbackQueryHandler(handle_buy_callback, pattern="^buy_"))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_group_message_and_coin_rush))
 application.add_error_handler(global_error_handler)
 
 app = Flask(__name__)
