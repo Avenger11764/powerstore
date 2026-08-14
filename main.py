@@ -246,18 +246,44 @@ def save_player_data(user_id: int, player_data: dict):
     """Upserts full player profile into Supabase."""
     if not db: return
     try:
-        payload = {'Telegram_id': str(user_id), 'telegram_id': str(user_id), **player_data}
-        payload.pop('user_id', None)
-        if not payload.get('in_game_name'):
-            payload['in_game_name'] = player_data.get('first_name') or player_data.get('username') or f"Player_{user_id}"
-        if not payload.get('first_name'):
-            payload['first_name'] = player_data.get('in_game_name') or player_data.get('username') or "Player"
-        for col in ['Telegram_id', 'telegram_id']:
-            try:
-                db.table('users').upsert(payload, on_conflict=col).execute()
-                break
-            except Exception:
-                pass
+        # Build exact clean payload for Supabase users table schema
+        payload = {
+            'Telegram_id': str(user_id),
+            'username': player_data.get('username') or f"user_{user_id}",
+            'first_name': player_data.get('first_name') or "Player",
+            'in_game_name': player_data.get('in_game_name') or player_data.get('first_name') or "Player",
+            'coins': player_data.get('coins', 5),
+            'cards': player_data.get('cards', []),
+            'status': player_data.get('status', {}),
+            'msgc_registered': player_data.get('msgc_registered', False)
+        }
+        
+        # Primary attempt: upsert using Telegram_id
+        try:
+            res = db.table('users').upsert(payload, on_conflict='Telegram_id').execute()
+            if res and hasattr(res, 'data') and res.data:
+                logger.info(f"Successfully saved player {user_id} in Supabase via Telegram_id.")
+                return
+        except Exception as e1:
+            logger.warning(f"Upsert on Telegram_id failed: {e1}")
+
+        # Fallback 1: upsert using lowercase telegram_id
+        try:
+            payload_fallback = {'telegram_id': str(user_id), **payload}
+            payload_fallback.pop('Telegram_id', None)
+            res = db.table('users').upsert(payload_fallback, on_conflict='telegram_id').execute()
+            if res and hasattr(res, 'data') and res.data:
+                logger.info(f"Successfully saved player {user_id} with telegram_id.")
+                return
+        except Exception as e2:
+            logger.warning(f"Upsert on telegram_id failed: {e2}")
+
+        # Fallback 2: insert directly without on_conflict parameter
+        try:
+            res = db.table('users').insert(payload).execute()
+            logger.info(f"Successfully inserted player {user_id} directly.")
+        except Exception as e3:
+            logger.error(f"Direct insert failed for user {user_id}: {e3}")
     except Exception as e:
         logger.error(f"Error saving player data for {user_id}: {e}")
 
