@@ -150,25 +150,45 @@ def escape_markdown_v2(text) -> str:
 
 async def send_safe_message(target_obj, text: str, reply_markup=None, parse_mode='MarkdownV2'):
     """Sends or edits a message safely, falling back to plain text if MarkdownV2 parsing fails."""
+    if target_obj is None:
+        return None
     try:
-        if hasattr(target_obj, 'reply_text'):
+        if hasattr(target_obj, 'reply_text') and callable(getattr(target_obj, 'reply_text', None)):
             return await target_obj.reply_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
-        elif hasattr(target_obj, 'edit_message_text'):
+        elif hasattr(target_obj, 'edit_message_text') and callable(getattr(target_obj, 'edit_message_text', None)):
             return await target_obj.edit_message_text(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
-        elif hasattr(target_obj, 'send_message'):
+        elif hasattr(target_obj, 'send_message') and callable(getattr(target_obj, 'send_message', None)):
             return await target_obj.send_message(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
     except Exception as e:
         logger.warning(f"Markdown parsing failed ({e}), sending plain text fallback.")
         clean_text = text.replace('*', '').replace('_', '').replace('\\', '')
         try:
-            if hasattr(target_obj, 'reply_text'):
+            if hasattr(target_obj, 'reply_text') and callable(getattr(target_obj, 'reply_text', None)):
                 return await target_obj.reply_text(clean_text, reply_markup=reply_markup)
-            elif hasattr(target_obj, 'edit_message_text'):
+            elif hasattr(target_obj, 'edit_message_text') and callable(getattr(target_obj, 'edit_message_text', None)):
                 return await target_obj.edit_message_text(text=clean_text, reply_markup=reply_markup)
-            elif hasattr(target_obj, 'send_message'):
+            elif hasattr(target_obj, 'send_message') and callable(getattr(target_obj, 'send_message', None)):
                 return await target_obj.send_message(text=clean_text, reply_markup=reply_markup)
         except Exception as e2:
             logger.error(f"Failed to send fallback plain text message: {e2}")
+
+async def safe_reply(update: Update, text: str, reply_markup=None, parse_mode=None):
+    """Safely sends a reply using update.effective_message or update.effective_chat."""
+    if not update:
+        return None
+    msg = update.effective_message
+    if msg:
+        try:
+            return await msg.reply_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        except Exception:
+            pass
+    chat = update.effective_chat
+    if chat:
+        try:
+            return await chat.send_message(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        except Exception:
+            pass
+    return None
 
 def extract_telegram_id(data: dict):
     if not isinstance(data, dict): return None
@@ -416,8 +436,11 @@ async def log_activity(bot: Bot, message: str, title: str = "Power Store Logs"):
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles the /start command. Registers a new player."""
     user = update.effective_user
+    if not user:
+        return
+
     if not db:
-        await update.message.reply_text("Database is not configured. Please contact the admin.")
+        await safe_reply(update, "Database is not configured. Please contact the admin.")
         return
 
     player_data = get_player_data(user.id)
@@ -447,7 +470,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             }
         }
         save_player_data(user.id, new_player)
-        await update.message.reply_text(
+        await safe_reply(update, 
             f"Welcome, {user.first_name}! 🎉\n\n"
             "You have joined the Power Store tournament and received 5 starter Power Coins (PC).\n\n"
             "Here are some commands to get you started:\n"
@@ -461,11 +484,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             'username': user.username,
             'first_name': user.first_name
         })
-        await update.message.reply_text("You are already registered! Use /profile to see your status.")
+        await safe_reply(update, "You are already registered! Use /profile to see your status.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Displays the help message."""
-    await update.message.reply_text(
+    await safe_reply(update, 
         "--- Power Store Bot Help ---\n\n"
         "/start - Join the game.\n"
         "/profile - Check your coins and cards (private chat only).\n"
@@ -480,15 +503,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Displays the player's profile. Can only be used in private chat."""
-    if update.message.chat.type != 'private':
-        await update.message.reply_text("You can only check your profile in a private chat with me. Please send /profile here.")
+    chat = update.effective_chat
+    msg = update.effective_message
+    if chat and chat.type != 'private':
+        await safe_reply(update, "You can only check your profile in a private chat with me. Please send /profile here.")
+        return
+
+    if not update.effective_user:
         return
 
     user_id = update.effective_user.id
     player_data = ensure_player_registered(user_id, update.effective_user)
 
     if not player_data:
-        await update.message.reply_text("Unable to load profile. Please try again.")
+        await safe_reply(update, "Unable to load profile. Please try again.")
         return
 
     safe_first_name = escape_markdown_v2(player_data.get('first_name', ''))
@@ -536,6 +564,8 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     last_god_date = status.get('last_god_use_date', '')
     god_uses_today = status.get('god_card_uses_today', 0) if last_god_date == today_str else 0
 
+    status_str = escape_markdown_v2(", ".join(status_list) if status_list else "Normal")
+
     message = (
         f"👤 *Profile for {safe_first_name}*\n\n"
         f"💰 *Power Coins:* {player_data.get('coins', 0)} PC\n"
@@ -543,7 +573,7 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"⚡ *God Card Uses Today:* {god_uses_today}/3\n"
         f"✨ *Status:* {status_str}"
     )
-    await send_safe_message(update.message, message, parse_mode='MarkdownV2')
+    await send_safe_message(msg or chat, message, parse_mode='MarkdownV2')
 
 
 # --- INTERACTIVE STORE ---
@@ -585,15 +615,20 @@ def build_store_menu(user_id, telegram_user=None):
 
 async def store_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Displays the power card store. Can only be used in private chat."""
-    if update.message.chat.type != 'private':
-        await update.message.reply_text("You can only access the store in a private chat with me. Please send /store here.")
+    chat = update.effective_chat
+    msg = update.effective_message
+    if chat and chat.type != 'private':
+        await safe_reply(update, "You can only access the store in a private chat with me. Please send /store here.")
+        return
+
+    if not update.effective_user:
         return
 
     text, reply_markup = build_store_menu(update.effective_user.id, update.effective_user)
     if reply_markup:
-        await send_safe_message(update.message, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+        await send_safe_message(msg or chat, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
     else:
-        await send_safe_message(update.message, text, parse_mode=None)
+        await send_safe_message(msg or chat, text, parse_mode=None)
 
 async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles showing the details of a single card."""
@@ -709,10 +744,14 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles the /use command."""
     user = update.effective_user
+    chat = update.effective_chat
     args = context.args
     
+    if not user or not chat:
+        return
+
     if not args:
-        await update.message.reply_text("Usage: /use <Card Name or ID> [args...]")
+        await safe_reply(update, "Usage: /use <Card Name or ID> [args...]")
         return
 
     card_id = None
@@ -732,12 +771,12 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 break
 
     if not card_id:
-        await update.message.reply_text("Card not found. Please use the exact card name or ID.")
+        await safe_reply(update, "Card not found. Please use the exact card name or ID.")
         return
 
     player_data = ensure_player_registered(user.id, user)
     if not player_data:
-        await update.message.reply_text("Unable to load profile. Please try again.")
+        await safe_reply(update, "Unable to load profile. Please try again.")
         return
 
     now = time.time()
@@ -758,28 +797,28 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             remaining_time = int(cooldown - (now - last_use))
             mins = remaining_time // 60
             secs = remaining_time % 60
-            await update.message.reply_text(f"You must wait {mins}m {secs}s before using another card.")
+            await safe_reply(update, f"You must wait {mins}m {secs}s before using another card.")
             return
 
     # Truce check: Disable negative/targeted cards
     truce_active = game_state.get('truce_until', 0) > now
     if truce_active and (card_id in NEGATIVE_CARDS or POWER_CARDS[card_id].get('requires_target')):
-        await update.message.reply_text("🤝 A Truce has been called! Negative cards are disabled right now.")
+        await safe_reply(update, "🤝 A Truce has been called! Negative cards are disabled right now.")
         return
 
     if status.get('shackled_until', 0) > time.time() and card_id != 'dispel':
-        await update.message.reply_text("⛓️ You are shackled! You cannot use any cards right now (except Dispel).")
+        await safe_reply(update, "⛓️ You are shackled! You cannot use any cards right now (except Dispel).")
         return
 
     if card_id not in player_data.get('cards', []):
-        await update.message.reply_text(f"You don't have a {POWER_CARDS[card_id]['name']} card.")
+        await safe_reply(update, f"You don't have a {POWER_CARDS[card_id]['name']} card.")
         return
     
     card = POWER_CARDS[card_id]
 
-    if update.message.chat.type == 'private':
+    if chat.type == 'private':
         if card_id in NEGATIVE_CARDS or card.get('requires_target') or card_id == 'god':
-            await update.message.reply_text("❌ Attacking or targeted cards can only be used in group chats!")
+            await safe_reply(update, "❌ Attacking or targeted cards can only be used in group chats!")
             return
 
     if card_id == 'god':
@@ -808,15 +847,15 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     target_player_data.get('username', target_username)
                 )
             else:
-                await update.message.reply_text(f"Player @{target_username} was not found in the game. They must use /start first.")
+                await safe_reply(update, f"Player @{target_username} was not found in the game. They must use /start first.")
                 return
 
         if not target_user:
-            await update.message.reply_text(f"To use the {card['name']} card, reply to a message from the target player OR mention their username (e.g., /use {card['name']} @username).")
+            await safe_reply(update, f"To use the {card['name']} card, reply to a message from the target player OR mention their username (e.g., /use {card['name']} @username).")
             return
 
         if target_user.id == user.id:
-            await update.message.reply_text("You cannot target yourself with this card.")
+            await safe_reply(update, "You cannot target yourself with this card.")
             return
 
         user_is_msgc = bool(player_data.get('msgc_registered', False))
@@ -824,15 +863,15 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if target_player_data:
             target_is_msgc = bool(target_player_data.get('msgc_registered', False))
             if user_is_msgc and not target_is_msgc:
-                await update.message.reply_text("❌ MSGC registered players can only use cards on other MSGC registered players.")
+                await safe_reply(update, "❌ MSGC registered players can only use cards on other MSGC registered players.")
                 return
             elif not user_is_msgc and target_is_msgc:
-                await update.message.reply_text("❌ Non-MSGC players cannot use cards on MSGC registered players.")
+                await safe_reply(update, "❌ Non-MSGC players cannot use cards on MSGC registered players.")
                 return
     
     if card_id == 'double_or_nothing':
         if player_data.get('coins', 0) < 40:
-            await update.message.reply_text("❌ You need at least 40 Power Coins to trigger Double or Nothing!")
+            await safe_reply(update, "❌ You need at least 40 Power Coins to trigger Double or Nothing!")
             return
         await handle_double_or_nothing_challenge(update, context, user, target_user)
         return
@@ -841,7 +880,7 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await execute_card_effect(update, context, user, card_id, target_user, card_args)
     except Exception as e:
         logger.error(f"Error executing card effect: {e}")
-        await update.message.reply_text(f"Action failed: {e}")
+        await safe_reply(update, f"Action failed: {e}")
 
 
 def process_use_card(user_data, target_data, card_id, card_args=None):
@@ -2040,19 +2079,13 @@ async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYP
     """Global error handler to handle errors gracefully and avoid raw Markdown entity parse crashes."""
     logger.error("Exception while handling an update:", exc_info=context.error)
     err_str = str(context.error) if context.error else "Unknown error"
-    if "can't parse entities" in err_str.lower() or "bad request" in err_str.lower():
-        logger.warning("Captured unhandled Markdown entity parse error. Handled gracefully.")
-        if isinstance(update, Update) and update.effective_message:
-            try:
-                await update.effective_message.reply_text("Formatting error occurred, but action processed.")
-            except Exception:
-                pass
-    else:
-        if isinstance(update, Update) and update.effective_message:
-            try:
-                await update.effective_message.reply_text(f"❌ An error occurred: {err_str}")
-            except Exception:
-                pass
+    
+    if any(k in err_str.lower() for k in ["can't parse entities", "bad request", "query is too old", "message is not modified", "chat not found"]):
+        logger.warning(f"Captured minor Telegram API error ({err_str}). Handled gracefully.")
+        return
+        
+    if isinstance(update, Update):
+        await safe_reply(update, f"❌ An error occurred: {err_str}")
 
 # --- APPLICATION SETUP ---
 
