@@ -190,6 +190,26 @@ async def safe_reply(update: Update, text: str, reply_markup=None, parse_mode=No
             pass
     return None
 
+async def safe_reply_animation(update: Update, animation, caption=None, parse_mode=None):
+    """Safely sends an animation reply using update.effective_message or update.effective_chat, falling back to safe_reply text."""
+    if not update:
+        return None
+    msg = update.effective_message
+    if msg and hasattr(msg, 'reply_animation') and callable(getattr(msg, 'reply_animation', None)):
+        try:
+            return await msg.reply_animation(animation=animation, caption=caption, parse_mode=parse_mode)
+        except Exception as e:
+            logger.warning(f"Could not send animation via msg ({e}), falling back to text.")
+    chat = update.effective_chat
+    if chat and hasattr(chat, 'send_animation') and callable(getattr(chat, 'send_animation', None)):
+        try:
+            return await chat.send_animation(animation=animation, caption=caption, parse_mode=parse_mode)
+        except Exception as e:
+            logger.warning(f"Could not send animation via chat ({e}), falling back to text.")
+    if caption:
+        return await safe_reply(update, caption, parse_mode=parse_mode)
+    return None
+
 def extract_telegram_id(data: dict):
     if not isinstance(data, dict): return None
     for key in ['Telegram_id', 'telegram_id', 'user_id', 'id', 'Telegram_Id']:
@@ -1167,7 +1187,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
 async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE, user, card_id, target_user, card_args):
     """The core logic for what happens when a card is used."""
     if not db:
-        await update.message.reply_text("Database not available.")
+        await safe_reply(update, "Database not available.")
         return
 
     card = POWER_CARDS.get(card_id, {})
@@ -1177,7 +1197,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if target_user and not target_data:
         target_name = getattr(target_user, 'first_name', 'The target player')
-        await update.message.reply_text(f"Target player {target_name} is not registered in the game yet. They must use /start to join.")
+        await safe_reply(update, f"Target player {target_name} is not registered in the game yet. They must use /start to join.")
         return
 
     result = process_use_card(user_data, target_data, card_id, card_args)
@@ -1187,7 +1207,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         original_target_data = get_player_data(result['data']['original_target_id'])
         card_name = POWER_CARDS[result['data']['card_id']]['name']
         
-        await update.message.reply_text(f"↪️ {original_target_data['first_name']}'s Ricochet redirected the {card_name} card from {attacker_data['first_name']}!")
+        await safe_reply(update, f"↪️ {original_target_data['first_name']}'s Ricochet redirected the {card_name} card from {attacker_data['first_name']}!")
 
         all_players = get_all_players()
         attacker_is_msgc = bool(attacker_data.get('msgc_registered', False)) if attacker_data else False
@@ -1199,14 +1219,14 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         ]
 
         if not potential_targets:
-            await update.message.reply_text("...but there was no one else to redirect it to!")
+            await safe_reply(update, "...but there was no one else to redirect it to!")
             return
 
         new_target_data = random.choice(potential_targets)
         redirect_result = process_use_card(attacker_data, new_target_data, result['data']['card_id'], result['data']['card_args'])
 
         if 'public' in redirect_result and redirect_result['public']:
-            await update.message.reply_text(redirect_result['public'])
+            await safe_reply(update, redirect_result['public'])
         if 'private' in redirect_result and redirect_result['private']:
             await context.bot.send_message(chat_id=result['data']['attacker_id'], text=redirect_result['private'])
 
@@ -1223,12 +1243,9 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
     if result.get('action') == 'trigger_vortex':
         gif_url = POWER_CARDS['vortex'].get('gif')
         if gif_url and 'public' in result and result['public']:
-            try:
-                await update.message.reply_animation(animation=gif_url, caption=result['public'])
-            except Exception as e:
-                await update.message.reply_text(result['public'])
+            await safe_reply_animation(update, animation=gif_url, caption=result['public'])
         elif 'public' in result and result['public']:
-            await update.message.reply_text(result['public'])
+            await safe_reply(update, result['public'])
         
         all_players = get_all_players()
         attacker_is_msgc = bool(user_data.get('msgc_registered', False)) if user_data else False
@@ -1268,20 +1285,16 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
                         logger.warning(f"Could not send Vortex DM to {p_id}: {e}")
 
         summary_message = "\n".join(discard_summary)
-        await update.message.reply_text(summary_message)
+        await safe_reply(update, summary_message)
         await log_activity(update.get_bot(), summary_message)
         return
 
     if 'public' in result and result['public']:
         gif_url = result.get('override_gif') or (card.get('gif') if isinstance(card, dict) else None)
         if gif_url:
-            try:
-                await update.message.reply_animation(animation=gif_url, caption=result['public'])
-            except Exception as e:
-                logger.warning(f"Failed to send GIF animation ({e}), falling back to text.")
-                await update.message.reply_text(result['public'])
+            await safe_reply_animation(update, animation=gif_url, caption=result['public'])
         else:
-            await update.message.reply_text(result['public'])
+            await safe_reply(update, result['public'])
     if 'private' in result and result['private']:
         await context.bot.send_message(chat_id=user.id, text=result['private'])
 
@@ -1312,8 +1325,9 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
 # --- DOUBLE OR NOTHING LOGIC ---
 
 async def handle_double_or_nothing_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE, attacker, target):
-    if update.message and update.message.chat.type == 'private':
-        await update.message.reply_text("❌ Double or Nothing can only be used in group chats!")
+    chat = update.effective_chat
+    if chat and chat.type == 'private':
+        await safe_reply(update, "❌ Double or Nothing can only be used in group chats!")
         return
 
     attacker_data = get_player_data(attacker.id)
@@ -1321,20 +1335,20 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
     wager = 40
 
     if not attacker_data or attacker_data.get('coins', 0) < wager:
-        await update.message.reply_text(f"You do not have enough coins to wager! You need {wager} PC.")
+        await safe_reply(update, f"You do not have enough coins to wager! You need {wager} PC.")
         return
     if not target_data or target_data.get('coins', 0) < wager:
-        await update.message.reply_text(f"{target.first_name} does not have enough coins for this wager! The card was not used.")
+        await safe_reply(update, f"{target.first_name} does not have enough coins for this wager! The card was not used.")
         return
 
     user_is_msgc = bool(attacker_data.get('msgc_registered', False)) if attacker_data else False
     target_is_msgc = bool(target_data.get('msgc_registered', False)) if target_data else False
 
     if user_is_msgc and not target_is_msgc:
-        await update.message.reply_text("❌ MSGC registered players can only challenge other MSGC registered players.")
+        await safe_reply(update, "❌ MSGC registered players can only challenge other MSGC registered players.")
         return
     elif not user_is_msgc and target_is_msgc:
-        await update.message.reply_text("❌ Non-MSGC players cannot challenge MSGC registered players.")
+        await safe_reply(update, "❌ Non-MSGC players cannot challenge MSGC registered players.")
         return
 
     winner, loser = (attacker, target) if random.random() < 0.5 else (target, attacker)
@@ -1359,13 +1373,9 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
     )
     gif_url = POWER_CARDS['double_or_nothing'].get('gif')
     if gif_url:
-        try:
-            await update.message.reply_animation(animation=gif_url, caption=message)
-        except Exception as e:
-            logger.warning(f"Could not send Double or Nothing animation ({e}), sending text.")
-            await update.message.reply_text(message)
+        await safe_reply_animation(update, animation=gif_url, caption=message)
     else:
-        await update.message.reply_text(message)
+        await safe_reply(update, message)
 
     try:
         target_dm_text = f"🎲 {attacker.first_name} (@{attacker.username or 'user'}) used Double or Nothing on you!\n\nWinner: {winner.first_name}\nPot won: {wager * 2} Power Coins"
@@ -1380,17 +1390,18 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
 
 async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, user, args):
     """Handles the logic for using the God card's specific powers."""
-    if update.message and update.message.chat.type == 'private':
-        await update.message.reply_text("❌ God powers can only be used in group chats!")
+    chat = update.effective_chat
+    if chat and chat.type == 'private':
+        await safe_reply(update, "❌ God powers can only be used in group chats!")
         return
 
     if not db:
-        await update.message.reply_text("Database not available.")
+        await safe_reply(update, "Database not available.")
         return
         
     try:
         if len(args) < 1:
-            await update.message.reply_text("You must specify a power. Usage: /use God <Blessing|Smite|Tribute> [@target]")
+            await safe_reply(update, "You must specify a power. Usage: /use God <Blessing|Smite|Tribute> [@target]")
             return
         
         power = args[0].lower()
@@ -1405,7 +1416,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         god_uses_today = user_status.get('god_card_uses_today', 0) if last_god_date == today_str else 0
 
         if god_uses_today >= 3:
-            await update.message.reply_text("❌ You have reached your limit of 3 God card uses for today! Try again tomorrow.")
+            await safe_reply(update, "❌ You have reached your limit of 3 God card uses for today! Try again tomorrow.")
             return
 
         user_is_msgc = bool(user_data.get('msgc_registered', False))
@@ -1413,21 +1424,21 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
         if power in ['blessing', 'smite']:
             if len(args) < 2:
-                await update.message.reply_text(f"The '{power}' power requires a target. Usage: /use God {power} @username")
+                await safe_reply(update, f"The '{power}' power requires a target. Usage: /use God {power} @username")
                 return
             
             username = args[1].lstrip('@')
             target_data = get_player_by_username(username)
             if not target_data:
-                await update.message.reply_text(f"Player @{username} not found.")
+                await safe_reply(update, f"Player @{username} not found.")
                 return
 
             target_is_msgc = bool(target_data.get('msgc_registered', False))
             if user_is_msgc and not target_is_msgc:
-                await update.message.reply_text("❌ MSGC registered players can only target other MSGC registered players.")
+                await safe_reply(update, "❌ MSGC registered players can only target other MSGC registered players.")
                 return
             elif not user_is_msgc and target_is_msgc:
-                await update.message.reply_text("❌ Non-MSGC players cannot target MSGC registered players.")
+                await safe_reply(update, "❌ Non-MSGC players cannot target MSGC registered players.")
                 return
 
         user_name = user_data.get('first_name', 'A player')
@@ -1478,7 +1489,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             user_data['coins'] = user_data.get('coins', 0) + total_tribute
             effect_message = f"🛐 {user_name} used God's Tribute, collecting a total of {total_tribute} coins from all other players!"
         else:
-            await update.message.reply_text("Invalid God power. Choose Blessing, Smite, or Tribute.")
+            await safe_reply(update, "Invalid God power. Choose Blessing, Smite, or Tribute.")
             return
 
         # Track daily God card usage
@@ -1493,13 +1504,9 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         gif_url = override_gif or (god_gifs.get(power) if isinstance(god_gifs, dict) else None)
         
         if gif_url:
-            try:
-                await update.message.reply_animation(animation=gif_url, caption=effect_message)
-            except Exception as e:
-                logger.warning(f"Could not send God power animation ({e}), sending text.")
-                await update.message.reply_text(effect_message)
+            await safe_reply_animation(update, animation=gif_url, caption=effect_message)
         else:
-            await update.message.reply_text(effect_message)
+            await safe_reply(update, effect_message)
         
         if target_data and target_data.get('user_id') and target_data['user_id'] != user.id:
             try:
@@ -1514,7 +1521,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     except Exception as e:
         logger.error(f"Error executing God power: {e}")
-        await update.message.reply_text(f"Action failed: {e}")
+        await safe_reply(update, f"Action failed: {e}")
 
 
 # --- ADMIN COMMANDS ---
@@ -1522,17 +1529,17 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to view all player stats."""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
+        await safe_reply(update, "You are not authorized to use this command.")
         return
 
     if not db:
-        await update.message.reply_text("Database not available.")
+        await safe_reply(update, "Database not available.")
         return
 
     try:
         all_players = get_all_players()
         if not all_players:
-            await update.message.reply_text("No players have registered yet.")
+            await safe_reply(update, "No players have registered yet.")
             return
 
         report_lines = ["📊 *All Players Report*\n"]
@@ -1551,20 +1558,20 @@ async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
 
         report = "\n".join(report_lines)
-        await update.message.reply_text(report, parse_mode='MarkdownV2')
+        await safe_reply(update, report, parse_mode='MarkdownV2')
 
     except Exception as e:
         logger.error(f"Error in /allplayers command: {e}")
-        await update.message.reply_text("An error occurred while fetching player data.")
+        await safe_reply(update, "An error occurred while fetching player data.")
 
 async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to award coins to a player."""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
+        await safe_reply(update, "You are not authorized to use this command.")
         return
     
     if not db:
-        await update.message.reply_text("Database not available.")
+        await safe_reply(update, "Database not available.")
         return
 
     try:
@@ -1574,7 +1581,7 @@ async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         target_data = get_player_by_username(username)
         if not target_data:
-            await update.message.reply_text(f"Player @{username} not found in the database. They must use /start first.")
+            await safe_reply(update, f"Player @{username} not found in the database. They must use /start first.")
             return
 
         new_coins = target_data.get('coins', 0) + amount
@@ -1593,38 +1600,33 @@ async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         except Exception as e:
             logger.warning(f"Could not send DM to user {target_data['user_id']}: {e}")
 
-        try:
-            await update.message.reply_animation(animation=award_gif_url, caption=reply_msg)
-        except Exception as e:
-            logger.warning(f"Could not send award GIF animation: {e}")
-            await update.message.reply_text(reply_msg)
-
+        await safe_reply_animation(update, animation=award_gif_url, caption=reply_msg)
         await log_activity(context.bot, f"👑 Admin awarded {amount} PC to @{username}.")
 
     except (ValueError, IndexError):
-        await update.message.reply_text("Usage: /award <amount> @username")
+        await safe_reply(update, "Usage: /award <amount> @username")
     except Exception as e:
         logger.error(f"Error in /award command: {e}")
-        await update.message.reply_text("An error occurred while awarding coins.")
+        await safe_reply(update, "An error occurred while awarding coins.")
 
 async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to award coins to all players."""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
+        await safe_reply(update, "You are not authorized to use this command.")
         return
 
     if not db:
-        await update.message.reply_text("Database not available.")
+        await safe_reply(update, "Database not available.")
         return
 
     try:
         amount_str = context.args[0]
         amount = int(amount_str)
         if amount <= 0:
-            await update.message.reply_text("Please provide a positive amount.")
+            await safe_reply(update, "Please provide a positive amount.")
             return
     except (ValueError, IndexError):
-        await update.message.reply_text("Usage: /awardall <amount>")
+        await safe_reply(update, "Usage: /awardall <amount>")
         return
 
     try:
@@ -1632,7 +1634,7 @@ async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         all_players, debug_info = get_all_players_debug()
         if not all_players:
             key_prefix = SUPABASE_KEY[:12] if SUPABASE_KEY else 'None'
-            await update.message.reply_text(
+            await safe_reply(update, 
                 f"⚠️ No registered players were retrieved.\n\n"
                 f"🔍 *Diagnostic Details:*\n"
                 f"• URL: `{SUPABASE_URL}`\n"
@@ -1653,31 +1655,26 @@ async def awardall_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 logger.warning(f"Could not send DM to user {p['user_id']}: {e}")
         
         reply_msg = f"✅ Successfully awarded {amount} PC to all {len(all_players)} players."
-        try:
-            await update.message.reply_animation(animation=awardall_gif_url, caption=reply_msg)
-        except Exception as e:
-            logger.warning(f"Could not send awardall GIF animation: {e}")
-            await update.message.reply_text(reply_msg)
-
+        await safe_reply_animation(update, animation=awardall_gif_url, caption=reply_msg)
         await log_activity(context.bot, f"👑 Admin awarded {amount} PC to all {len(all_players)} players.")
 
     except Exception as e:
         logger.error(f"Error in /awardall command: {e}")
-        await update.message.reply_text("An error occurred while awarding coins to all players.")
+        await safe_reply(update, "An error occurred while awarding coins to all players.")
 
 async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to give a card to a player."""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
+        await safe_reply(update, "You are not authorized to use this command.")
         return
 
     if not db:
-        await update.message.reply_text("Database not available.")
+        await safe_reply(update, "Database not available.")
         return
     
     try:
         if len(context.args) < 2:
-            await update.message.reply_text("Usage: /givecard <Card Name> @username")
+            await safe_reply(update, "Usage: /givecard <Card Name> @username")
             return
 
         username = context.args[-1].lstrip('@')
@@ -1685,12 +1682,12 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         card_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == card_name_query.lower() or cid.lower() == card_name_query.lower()), None)
         
         if not card_id:
-            await update.message.reply_text(f"Card '{card_name_query}' not found. Please use the exact card name.")
+            await safe_reply(update, f"Card '{card_name_query}' not found. Please use the exact card name.")
             return
 
         target_data = get_player_by_username(username)
         if not target_data:
-            await update.message.reply_text(f"Player @{username} not found in the database. They must use /start first.")
+            await safe_reply(update, f"Player @{username} not found in the database. They must use /start first.")
             return
             
         c_list = list(target_data.get('cards', []))
@@ -1707,26 +1704,26 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         except Exception as e:
             logger.warning(f"Could not send DM to user {target_data['user_id']}: {e}")
 
-        await update.message.reply_text(f"✅ Successfully gave a {card_name} card to @{username}.")
+        await safe_reply(update, f"✅ Successfully gave a {card_name} card to @{username}.")
         await log_activity(context.bot, f"👑 Admin gave a {card_name} card to @{username}.")
 
     except (ValueError, IndexError):
-        await update.message.reply_text("Usage: /givecard <CardName> @username")
+        await safe_reply(update, "Usage: /givecard <CardName> @username")
 
 async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to reset all players' coins to 5 and clear their cards."""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
+        await safe_reply(update, "You are not authorized to use this command.")
         return
 
     if not db:
-        await update.message.reply_text("Database not available.")
+        await safe_reply(update, "Database not available.")
         return
 
     try:
         all_players = get_all_players()
         if not all_players:
-            await update.message.reply_text("No players found in database.")
+            await safe_reply(update, "No players found in database.")
             return
 
         for p in all_players:
@@ -1734,20 +1731,20 @@ async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TY
                 update_player_data(p['user_id'], {'coins': 5, 'cards': []})
 
         reply_msg = f"✅ Successfully reset all {len(all_players)} players to 5 coins and 0 cards."
-        await update.message.reply_text(reply_msg)
+        await safe_reply(update, reply_msg)
         await log_activity(context.bot, f"👑 Admin reset all {len(all_players)} players to 5 coins and 0 cards.")
     except Exception as e:
         logger.error(f"Error in /resetallcoins command: {e}")
-        await update.message.reply_text("An error occurred while resetting coins.")
+        await safe_reply(update, "An error occurred while resetting coins.")
 
 async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Central command dispatcher to trigger any admin event."""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
+        await safe_reply(update, "You are not authorized to use this command.")
         return
     
     if not context.args:
-        await update.message.reply_text(
+        await safe_reply(update, 
             "Usage: /startevent <event_name>\n\n"
             "Available Events (MSGC Registered Players Only):\n"
             "• bogo - Free Tier 1 or 2 card with every store purchase (15 min)\n"
@@ -1766,24 +1763,24 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if event_name == 'bogo':
         update_game_state({'bogo_active_until': now + (15 * 60)})
         await broadcast_event_message(context.bot, "🎁 *BOGO EVENT STARTED!* 🎁\n\nFor 15 minutes, store purchases for MSGC registered players include a FREE Tier 1 or 2 card!", context)
-        await update.message.reply_text("✅ BOGO event started for 15 minutes.")
+        await safe_reply(update, "✅ BOGO event started for 15 minutes.")
 
     elif event_name == 'secretsanta':
-        await update.message.reply_text("🎅 Initiating Secret Santa...")
+        await safe_reply(update, "🎅 Initiating Secret Santa...")
         await execute_secret_santa_event(context.bot, context)
 
     elif event_name == 'rushhour':
         update_game_state({'rush_hour_until': now + (60 * 60)})
         await broadcast_event_message(context.bot, "⏰ *RUSH HOUR HAS BEGUN!* ⏰\n\nFor 1 hour, all card cooldowns are disabled for MSGC registered players!", context)
-        await update.message.reply_text("✅ Rush Hour started for 1 hour.")
+        await safe_reply(update, "✅ Rush Hour started for 1 hour.")
 
     elif event_name == 'truce':
         update_game_state({'truce_until': now + (15 * 60)})
         await broadcast_event_message(context.bot, "🤝 *A TRUCE HAS BEEN CALLED!* 🤝\n\nFor 15 minutes, negative cards are disabled for MSGC registered players!", context)
-        await update.message.reply_text("✅ Truce event started for 15 minutes.")
+        await safe_reply(update, "✅ Truce event started for 15 minutes.")
 
     elif event_name == 'gambit':
-        await update.message.reply_text("🎲 Initiating Gambit...")
+        await safe_reply(update, "🎲 Initiating Gambit...")
         await execute_gambit_event(context.bot, context)
 
     elif event_name == 'coinrush':
@@ -1796,20 +1793,20 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if context.job_queue:
             context.job_queue.run_once(coin_rush_end, duration)
         await broadcast_event_message(context.bot, "💰 *COIN RUSH!* 💰\n\nFor 10 minutes, messages in group chats drop free Power Coins for MSGC registered players!", context)
-        await update.message.reply_text("✅ Coin Rush started for 10 minutes.")
+        await safe_reply(update, "✅ Coin Rush started for 10 minutes.")
 
     elif event_name == 'freebiefrenzy':
         update_game_state({'freebie_frenzy_until': now + (15 * 60)})
         await broadcast_event_message(context.bot, "🎁 *FREEBIE FRENZY!* 🎁\n\nFor 15 minutes, Tier 1 cards (except Angel) are FREE in the store for MSGC registered players!", context)
-        await update.message.reply_text("✅ Freebie Frenzy started for 15 minutes.")
+        await safe_reply(update, "✅ Freebie Frenzy started for 15 minutes.")
 
     else:
-        await update.message.reply_text(f"Unknown event: '{event_name}'. Use /startevent to see available events.")
+        await safe_reply(update, f"Unknown event: '{event_name}'. Use /startevent to see available events.")
 
 async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to clear all active events."""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
+        await safe_reply(update, "You are not authorized to use this command.")
         return
 
     update_game_state({
@@ -1819,7 +1816,7 @@ async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         'coin_rush_until': 0,
         'freebie_frenzy_until': 0
     })
-    await update.message.reply_text("🛑 All active events have been ended.")
+    await safe_reply(update, "🛑 All active events have been ended.")
 
 
 # --- EVENT SYSTEM ---
@@ -1942,115 +1939,6 @@ async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
 
     await broadcast_event_message(bot, "\n".join(summary_messages), context)
 
-async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin command to reset all players' coins to 5."""
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
-        return
-
-    if not db:
-        await update.message.reply_text("Database not available.")
-        return
-
-    try:
-        all_players = get_all_players()
-        if not all_players:
-            await update.message.reply_text("No players found in database.")
-            return
-
-        for p in all_players:
-            if p.get('user_id'):
-                update_player_data(p['user_id'], {'coins': 5, 'cards': []})
-
-        reply_msg = f"✅ Successfully reset coins to 5 for all {len(all_players)} players."
-        await update.message.reply_text(reply_msg)
-        await log_activity(context.bot, f"👑 Admin reset coins to 5 for all {len(all_players)} players.")
-    except Exception as e:
-        logger.error(f"Error in /resetallcoins command: {e}")
-        await update.message.reply_text("An error occurred while resetting coins.")
-
-async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Central command dispatcher to trigger any admin event."""
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
-        return
-    
-    if not context.args:
-        await update.message.reply_text(
-            "Usage: /startevent <event_name>\n\n"
-            "Available Events:\n"
-            "• bogo - Free Tier 1 or 2 card with every store purchase (15 min)\n"
-            "• secretsanta - Players gift cards or coins to each other\n"
-            "• rushhour - All card usage cooldowns disabled (1 hour)\n"
-            "• truce - All negative cards disabled (15 min)\n"
-            "• gambit - Every player receives a random non-God card\n"
-            "• coinrush - Messages in group chats drop bonus coins (10 min)\n"
-            "• freebiefrenzy - Tier 1 cards are FREE in the store (15 min)"
-        )
-        return
-        
-    event_name = context.args[0].lower()
-    now = time.time()
-
-    if event_name == 'bogo':
-        update_game_state({'bogo_active_until': now + (15 * 60)})
-        await broadcast_event_message(context.bot, "🎁 *BOGO EVENT STARTED!* 🎁\n\nFor 15 minutes, store purchases include a FREE Tier 1 or 2 card!", context)
-        await update.message.reply_text("✅ BOGO event started for 15 minutes.")
-
-    elif event_name == 'secretsanta':
-        await update.message.reply_text("🎅 Initiating Secret Santa...")
-        await execute_secret_santa_event(context.bot, context)
-
-    elif event_name == 'rushhour':
-        update_game_state({'rush_hour_until': now + (60 * 60)})
-        await broadcast_event_message(context.bot, "⏰ *RUSH HOUR HAS BEGUN!* ⏰\n\nFor 1 hour, all card cooldowns are disabled!", context)
-        await update.message.reply_text("✅ Rush Hour started for 1 hour.")
-
-    elif event_name == 'truce':
-        update_game_state({'truce_until': now + (15 * 60)})
-        await broadcast_event_message(context.bot, "🤝 *A TRUCE HAS BEEN CALLED!* 🤝\n\nFor 15 minutes, negative cards are disabled!", context)
-        await update.message.reply_text("✅ Truce event started for 15 minutes.")
-
-    elif event_name == 'gambit':
-        await update.message.reply_text("🎲 Initiating Gambit...")
-        await execute_gambit_event(context.bot, context)
-
-    elif event_name == 'coinrush':
-        duration = 10 * 60
-        update_game_state({'coin_rush_until': now + duration})
-        
-        async def coin_rush_end(ctx: ContextTypes.DEFAULT_TYPE):
-            await broadcast_event_message(ctx.bot, "💰 *Coin Rush has ended!* 💰\n\nThanks for participating!", ctx)
-            
-        if context.job_queue:
-            context.job_queue.run_once(coin_rush_end, duration)
-        await broadcast_event_message(context.bot, "💰 *COIN RUSH!* 💰\n\nFor 10 minutes, messages in group chats drop free Power Coins!", context)
-        await update.message.reply_text("✅ Coin Rush started for 10 minutes.")
-
-    elif event_name == 'freebiefrenzy':
-        update_game_state({'freebie_frenzy_until': now + (15 * 60)})
-        await broadcast_event_message(context.bot, "🎁 *FREEBIE FRENZY!* 🎁\n\nFor 15 minutes, Tier 1 cards (except Angel) are FREE in the store!", context)
-        await update.message.reply_text("✅ Freebie Frenzy started for 15 minutes.")
-
-    else:
-        await update.message.reply_text(f"Unknown event: '{event_name}'. Use /startevent to see available events.")
-
-async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin command to clear all active events."""
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("You are not authorized to use this command.")
-        return
-
-    update_game_state({
-        'bogo_active_until': 0,
-        'rush_hour_until': 0,
-        'truce_until': 0,
-        'coin_rush_until': 0,
-        'freebie_frenzy_until': 0,
-        'faction_war': {}
-    })
-    await update.message.reply_text("🛑 All active events have been ended.")
-
 async def handle_group_message_and_coin_rush(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tracks active group chat IDs and processes Coin Rush random coin drops."""
     chat = update.effective_chat
@@ -2069,10 +1957,7 @@ async def handle_group_message_and_coin_rush(update: Update, context: ContextTyp
             p_data = get_player_data(user.id)
             if p_data:
                 update_player_data(user.id, {'coins': p_data.get('coins', 0) + drop})
-                try:
-                    await update.message.reply_text(f"💰 *Coin Rush Drop!* {user.first_name} received +{drop} Power Coins!")
-                except Exception:
-                    pass
+                await safe_reply(update, f"💰 *Coin Rush Drop!* {user.first_name} received +{drop} Power Coins!")
 
 
 async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
