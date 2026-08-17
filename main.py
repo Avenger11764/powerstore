@@ -646,11 +646,15 @@ def build_store_menu(user_id, telegram_user=None):
         text += "\n\n📈 *Inflation is active\\! Prices are doubled\\!*"
 
     keyboard = []
+    disabled_cards = game_state.get('disabled_cards', [])
     for card_id, card in POWER_CARDS.items():
         c_price = card['price']
         if freebie_frenzy_active and card.get('tier') == 1 and card_id != 'angel':
             c_price = 0
-        button_text = f"{card['icon']} {card['name']} ({c_price} PC)"
+        if card_id in disabled_cards:
+            button_text = f"{card['icon']} {card['name']} (DISABLED)"
+        else:
+            button_text = f"{card['icon']} {card['name']} ({c_price} PC)"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=f"inspect_{card_id}")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -699,14 +703,22 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     elif is_affected_by_inflation:
         price = int(price * 2)
 
+    disabled_cards = game_state.get('disabled_cards', [])
+    is_disabled = card_id in disabled_cards
+
     text = (
         f"{card['icon']} *{escape_markdown_v2(card['name'])}*\n\n"
         f"*Power:* {escape_markdown_v2(card['description'])}\n"
-        f"*Cost:* {price} PC"
+        f"*Cost:* {price} PC" + (" \\(DISABLED\\)" if is_disabled else "")
     )
 
+    if is_disabled:
+        buy_btn = InlineKeyboardButton("🛑 Disabled by Admin", callback_data="back_to_store")
+    else:
+        buy_btn = InlineKeyboardButton(f"💰 Buy this card ({price} PC)", callback_data=f"buy_{card_id}")
+
     keyboard = [
-        [InlineKeyboardButton(f"💰 Buy this card ({price} PC)", callback_data=f"buy_{card_id}")],
+        [buy_btn],
         [InlineKeyboardButton("⬅️ Back to Store", callback_data="back_to_store")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -743,6 +755,11 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     game_state = get_game_state()
+    disabled_cards = game_state.get('disabled_cards', [])
+    if card_id in disabled_cards:
+        await query.edit_message_text(f"🛑 The '{card['name']}' card is currently disabled by the Admin and cannot be purchased!")
+        return
+
     player_status = player_data.get('status', {}) or {}
 
     inflation_active = game_state.get('inflation_until', 0) > time.time()
@@ -825,6 +842,12 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     now = time.time()
     status = player_data.get('status', {}) or {}
     game_state = get_game_state()
+
+    disabled_cards = game_state.get('disabled_cards', [])
+    if card_id in disabled_cards:
+        card_name = POWER_CARDS[card_id]['name']
+        await safe_reply(update, f"🛑 The '{card_name}' card is currently disabled by the Admin and cannot be used!")
+        return
 
     # Rush Hour check: Disable card cooldown
     rush_hour_active = game_state.get('rush_hour_until', 0) > now
@@ -1874,6 +1897,85 @@ async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     })
     await safe_reply(update, "🛑 All active events have been ended.")
 
+async def disablecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to temporarily disable a card from purchase and usage."""
+    if not is_admin(update.effective_user.id):
+        await safe_reply(update, "You are not authorized to use this command.")
+        return
+
+    if not context.args:
+        await safe_reply(update, "Usage: /disablecard <Card Name or ID>")
+        return
+
+    card_query = " ".join(context.args).lower()
+    card_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == card_query or cid.lower() == card_query), None)
+
+    if not card_id:
+        await safe_reply(update, f"Card '{card_query}' not found. Please use exact card name or ID.")
+        return
+
+    game_state = get_game_state()
+    disabled_cards = list(game_state.get('disabled_cards', []))
+
+    if card_id in disabled_cards:
+        await safe_reply(update, f"Card '{POWER_CARDS[card_id]['name']}' is already disabled.")
+        return
+
+    disabled_cards.append(card_id)
+    update_game_state({'disabled_cards': disabled_cards})
+
+    card_name = POWER_CARDS[card_id]['name']
+    reply_msg = f"🛑 Card '{card_name}' has been DISABLED! Players can no longer buy or use this card."
+    await safe_reply(update, reply_msg)
+    await log_activity(context.bot, f"👑 Admin disabled card: {card_name}")
+
+async def enablecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to re-enable a previously disabled card."""
+    if not is_admin(update.effective_user.id):
+        await safe_reply(update, "You are not authorized to use this command.")
+        return
+
+    if not context.args:
+        await safe_reply(update, "Usage: /enablecard <Card Name or ID>")
+        return
+
+    card_query = " ".join(context.args).lower()
+    card_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == card_query or cid.lower() == card_query), None)
+
+    if not card_id:
+        await safe_reply(update, f"Card '{card_query}' not found. Please use exact card name or ID.")
+        return
+
+    game_state = get_game_state()
+    disabled_cards = list(game_state.get('disabled_cards', []))
+
+    if card_id not in disabled_cards:
+        await safe_reply(update, f"Card '{POWER_CARDS[card_id]['name']}' is not currently disabled.")
+        return
+
+    disabled_cards.remove(card_id)
+    update_game_state({'disabled_cards': disabled_cards})
+
+    card_name = POWER_CARDS[card_id]['name']
+    reply_msg = f"✅ Card '{card_name}' has been RE-ENABLED for purchase and usage."
+    await safe_reply(update, reply_msg)
+    await log_activity(context.bot, f"👑 Admin enabled card: {card_name}")
+
+async def disabledcards_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Views currently disabled cards."""
+    game_state = get_game_state()
+    disabled_cards = game_state.get('disabled_cards', [])
+    if not disabled_cards:
+        await safe_reply(update, "🟢 No cards are currently disabled.")
+        return
+
+    lines = ["🛑 *Currently Disabled Cards:*\n"]
+    for cid in disabled_cards:
+        if cid in POWER_CARDS:
+            lines.append(f"• {POWER_CARDS[cid]['icon']} *{escape_markdown_v2(POWER_CARDS[cid]['name'])}*")
+
+    await safe_reply(update, "\n".join(lines), parse_mode='MarkdownV2')
+
 
 # --- EVENT SYSTEM ---
 
@@ -2050,6 +2152,9 @@ application.add_handler(CommandHandler("startevent", startevent_command))
 application.add_handler(CommandHandler("endevent", endevent_command))
 application.add_handler(CommandHandler("givecard", givecard_command))
 application.add_handler(CommandHandler("allplayers", all_players_command))
+application.add_handler(CommandHandler("disablecard", disablecard_command))
+application.add_handler(CommandHandler("enablecard", enablecard_command))
+application.add_handler(CommandHandler("disabledcards", disabledcards_command))
 application.add_handler(CallbackQueryHandler(handle_inspect_callback, pattern="^inspect_"))
 application.add_handler(CallbackQueryHandler(handle_back_to_store_callback, pattern="^back_to_store$"))
 application.add_handler(CallbackQueryHandler(handle_buy_callback, pattern="^buy_"))
