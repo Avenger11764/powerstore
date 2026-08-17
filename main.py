@@ -402,10 +402,16 @@ def ensure_player_registered(user_id: int, telegram_user=None) -> dict:
 GLOBAL_GAME_STATE = {}
 
 def get_game_state() -> dict:
-    """Retrieves global game state, merging in-memory state with Supabase."""
+    """Retrieves global game state, merging in-memory state with Supabase system row."""
     state = {**GLOBAL_GAME_STATE}
     if db:
         try:
+            sys_res = db.table('users').select('*').eq('telegram_id', '0').execute()
+            if sys_res and sys_res.data and len(sys_res.data) > 0:
+                sys_status = parse_json_dict(sys_res.data[0].get('status'))
+                if isinstance(sys_status, dict):
+                    state.update(sys_status)
+
             res = db.table('game_state').select('*').execute()
             if res and hasattr(res, 'data') and res.data:
                 for row in res.data:
@@ -419,24 +425,41 @@ def get_game_state() -> dict:
                         state.update(row)
         except Exception as e:
             logger.warning(f"Failed to fetch game_state from Supabase: {e}")
+    GLOBAL_GAME_STATE.update(state)
     return state
 
 def update_game_state(updates: dict):
-    """Updates global game state both in-memory and in Supabase."""
+    """Updates global game state both in-memory and in Supabase system row."""
     GLOBAL_GAME_STATE.update(updates)
     if not db: return
     try:
+        cur_sys = {}
+        try:
+            sys_res = db.table('users').select('*').eq('telegram_id', '0').execute()
+            if sys_res and sys_res.data and len(sys_res.data) > 0:
+                cur_sys = parse_json_dict(sys_res.data[0].get('status'))
+        except Exception:
+            pass
+        if not isinstance(cur_sys, dict): cur_sys = {}
+        cur_sys.update(updates)
+
+        sys_payload = {
+            'telegram_id': '0',
+            'username': 'GLOBAL_SYSTEM_STATE',
+            'first_name': 'System State',
+            'in_game_name': 'System State',
+            'coins': 0,
+            'cards': [],
+            'status': cur_sys,
+            'msgc_registered': False
+        }
+        db.table('users').upsert(sys_payload, on_conflict='telegram_id').execute()
+
         payload = {'id': 'game_data', **updates}
         try:
             db.table('game_state').upsert(payload, on_conflict='id').execute()
         except Exception:
             pass
-
-        for k, v in updates.items():
-            try:
-                db.table('game_state').upsert({'key': k, 'data': v}, on_conflict='key').execute()
-            except Exception:
-                pass
     except Exception as e:
         logger.error(f"Error updating game state: {e}")
 
