@@ -1505,7 +1505,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     try:
                         await context.bot.send_message(
                             chat_id=p['user_id'],
-                            text=f"🛐 {user_name} (@{user.username or 'user'}) used God's Tribute!\nYou paid {c_pay} Power Coins in tribute."
+                            text=f"🛐 {user_name} (@{user.username or 'user'}) used God's Tribute!\n\nYou paid {c_pay} Power Coins in tribute to {user_name}."
                         )
                     except Exception as e:
                         logger.warning(f"Could not send Tribute DM to user {p['user_id']}: {e}")
