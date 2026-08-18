@@ -7,7 +7,7 @@ An interactive card game, economy, and power-up Telegram bot designed for group 
 ## 🌟 Key Features
 
 - 💰 **Power Economy:** Earn coins from message activity, admin awards, and card effects.
-- 🎴 **Strategic Power Cards:** 16 unique cards across 3 tiers (Defensive, Offensive, Tactical, and Legendary).
+- 🎴 **Strategic Power Cards:** 29 unique cards across 4 tiers (Defensive, Offensive, Tactical, and Legendary).
 - 🎉 **Live Event System:** 7 automated admin events with direct DM notifications to players.
 - 🛑 **Dynamic Card Management:** Admins can temporarily disable/enable cards live without restarting the bot.
 - 👥 **Multi-Admin Support:** Authenticated multi-admin authorization for server management.
@@ -18,44 +18,48 @@ An interactive card game, economy, and power-up Telegram bot designed for group 
 
 ## 🎴 Power Cards Catalog
 
-Cards are categorized into **3 Tiers** based on their power level and coin cost:
+Here is the exact price list, tier ranking, target type, and description of all **29 Power Cards** as defined in the bot store:
 
-### 🛡️ Tier 1 Cards (Basic & Defensive)
-| Card Name | Icon | Price | Type | Effect Description |
-| :--- | :---: | :---: | :---: | :--- |
-| **Forcefield** | 🛡️ | 10 PC | Defense | Protects you from the next negative card attack targeting you. |
-| **Trap** | 🪤 | 10 PC | Defense | Sprung when attacked! Counter-attacks the attacker, causing them to lose 15 PC. |
-| **Karma** | ⚖️ | 15 PC | Passive | Lasts 30 mins. If someone attacks you, they suffer 50% of the damage. |
-| **Angel** | 👼 | 20 PC | Support | Transfer up to 20 PC to another player safely without tax. |
-
-### ⚡ Tier 2 Cards (Tactical & Offensive)
-| Card Name | Icon | Price | Type | Effect Description |
-| :--- | :---: | :---: | :---: | :--- |
-| **Double or Nothing** | 🎲 | 40 PC | Gamble | Require $\ge 40$ PC balance. 50% chance to double your wager or lose it all! |
-| **Mirage** | 🏜️ | 30 PC | Illusion | Lasts 15 mins. Creates 3 fake cards in your inventory to confuse stealers. |
-| **Speed** | ⚡ | 35 PC | Buff | Lasts 20 mins. Reduces your card usage cooldowns by 50%. |
-| **Blackout** | 🕶️ | 35 PC | Utility | Hides your coin balance and active cards from `/profile` lookups for 1 hour. |
-| **Black Market** | 💰 | 50 PC | Economy | Grants 50% discount on all store card purchases for 15 minutes. |
-| **Shackles** | ⛓️ | 50 PC | Debuff | Shackles a target player for 15 mins, preventing them from using cards (except Dispel). |
-| **Frenzy** | 🔀 | 60 PC | Buff | Grants 3 consecutive instant card uses with 0s cooldown. |
-| **Ricochet** | ↪️ | 60 PC | Defense | Lasts 20 mins. Reflects 100% of negative card attacks back onto the attacker. |
-| **Dispel** | 🪄 | 40 PC | Utility | Cleanses all active negative status debuffs from yourself or a target ally. |
-
-### 👑 Tier 3 Cards (Legendary & Ultimate)
-| Card Name | Icon | Price | Type | Effect Description |
-| :--- | :---: | :---: | :---: | :--- |
-| **Devil** | 😈 | 100 PC | Offensive | Steals 30% of a target player's total Power Coins. |
-| **Inflation** | 📈 | 150 PC | Economy | Doubles `/store` card prices for all other players for 30 minutes. |
-| **God** | 👑 | 250 PC | Ultimate | Unleashes 1 of 3 divine powers (**Blessing**, **Smite**, or **Tribute**). |
+| Card Name | Icon | Price | Tier | Target | Description |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Speed** | ⚡️ | **20 PC** | Tier 1 | Self/Global | Reduces the cooldown time on your card usage by half for the next 1 hour. |
+| **Vision** | 👁️ | **20 PC** | Tier 1 | Targeted | Secretly view the card inventory of a target player. |
+| **Angel** | 👼 | **20 PC** | Tier 1 | Targeted | Gift 20 of your own Power Coins to another player. |
+| **Blackout** | 🕶️ | **25 PC** | Tier 1 | Self/Global | For 3 hours, you are immune to Vision and Spotlight cards. |
+| **Re-roll** | ♻️ | **15 PC** | Tier 1 | Self/Global | Discard your entire hand to gain back 75% of its total coin value. |
+| **Black Market** | 💰 | **40 PC** | Tier 1 | Self/Global | For 1 hour, all items in the store are 50% off for you. |
+| **Lottery Ticket** | 🎟️ | **5 PC** | Tier 1 | Self/Global | A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky. |
+| **Flame** | 🔥 | **20 PC** | Tier 2 | Targeted | Burn 15 Power Coins from a target player. |
+| **Glitch** | 🌀 | **30 PC** | Tier 2 | Targeted | Force a target player to randomly discard one of their cards. |
+| **Shackle** | ⛓️ | **30 PC** | Tier 2 | Targeted | For 1 hour, your target is unable to use any cards. |
+| **Spotlight** | 💡 | **25 PC** | Tier 2 | Targeted | Publicly reveal a target player's entire card inventory to the group. |
+| **Time Warp** | ⏳ | **25 PC** | Tier 2 | Targeted | Immediately end an active Karma or Shackle effect on a target player. |
+| **Mirage** | 🏜️ | **25 PC** | Tier 2 | Self/Global | For 1 hour, Vision/Spotlight used on you will show a fake hand. |
+| **Dispel** | 💨 | **30 PC** | Tier 2 | Self/Global | Immediately removes Shackle and personal Inflation effects from yourself. |
+| **Double or Nothing** | 🎲 | **20 PC** | Tier 2 | Targeted | Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins). |
+| **Forcefield** | 🛡️ | **40 PC** | Tier 3 | Self/Global | Block the next negative card used on you. |
+| **Trap** | 🪤 | **50 PC** | Tier 3 | Self/Global | Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins. |
+| **Ricochet** | ↪️ | **40 PC** | Tier 3 | Self/Global | Activate this card. For the next 1 hr, the next negative card used on you is redirected to a random other player in the game. |
+| **Clairvoyance** | 🔮 | **40 PC** | Tier 3 | Targeted | Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout. |
+| **Devil** | 😈 | **35 PC** | Tier 3 | Targeted | Steal 25 Power Coins from an opponent. |
+| **Karma** | ⚖️ | **45 PC** | Tier 3 | Self/Global | For 2 hours, any negative card used on you is reflected back to the sender. |
+| **Swap** | 🔄 | **35 PC** | Tier 3 | Targeted | Swap a random card from your hand with a random card from a target's hand. |
+| **Steal** | 🥷 | **40 PC** | Tier 3 | Targeted | Steals a random card from the target user. |
+| **Inflation** | 📈 | **60 PC** | Tier 3 | Self/Global | For 1 hour, all card prices in the store are doubled for everyone but you. |
+| **Purge** | 🎯 | **50 PC** | Tier 3 | Targeted | Name a card. If your target has it, they are forced to discard it. |
+| **Vortex** | 🌪️ | **30 PC** | Tier 3 | Self/Global | All players in the game (including you) must immediately discard one random card. |
+| **Amnesia** | ❓ | **75 PC** | Tier 3 | Targeted | Force a target player to discard their entire hand of cards. |
+| **Frenzy** | 🔀 | **35 PC** | Tier 3 | Self/Global | Use your next two cards without a cooldown period. |
+| **God** | 🛐 | **80 PC** | Tier 4 | Self/Global | Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins). |
 
 ---
 
-### 👑 The God Card Divine Powers
+### 👑 The God Card Divine Powers & Limits
 
 The **God Card** holds ultimate authority with strict global and daily balancing limits:
 
 - ⚡ **Daily Player Limit:** Max **2 God Card uses** per player per day (`⚡ God Card Uses Today: X/2`).
-- 🛐 **God's Tribute:** Collects tribute coins from all other players.
+- 🛐 **God's Tribute:** Collects 5 PC tribute from all other players.
   - **Global Limit:** Max **1 Tribute globally every 24 hours** across the entire bot.
   - **DM Alerts:** Automatically DMs every player notifying them who received their tribute.
 - ⚡ **God's Smite:** Destroys 50% of a target player's coins.

@@ -165,6 +165,7 @@
                         <button onclick="filterCards('1')" id="btn-1" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all">Tier 1</button>
                         <button onclick="filterCards('2')" id="btn-2" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all">Tier 2</button>
                         <button onclick="filterCards('3')" id="btn-3" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all">Tier 3</button>
+                        <button onclick="filterCards('4')" id="btn-4" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all">Tier 4</button>
                     </div>
                 </div>
             </div>
@@ -317,23 +318,268 @@
     <!-- JavaScript for Cards rendering and filtering -->
     <script>
         const CARDS_DATA = [
-            { id: 'forcefield', name: 'Forcefield', icon: '🛡️', tier: 1, price: 10, type: 'Defense', desc: 'Protects you from the next negative card attack targeting you.' },
-            { id: 'trap', name: 'Trap', icon: '🪤', tier: 1, price: 10, type: 'Defense', desc: 'Counter-attacks the next player who targets you, causing them to lose 15 PC.' },
-            { id: 'karma', name: 'Karma', icon: '⚖️', tier: 1, price: 15, type: 'Passive', desc: 'Lasts 30 mins. Anyone who attacks you suffers 50% of the damage back.' },
-            { id: 'angel', name: 'Angel', icon: '👼', tier: 1, price: 20, type: 'Support', desc: 'Transfer up to 20 PC to another player safely without tax.' },
-            { id: 'double_or_nothing', name: 'Double or Nothing', icon: '🎲', tier: 2, price: 40, type: 'Gamble', desc: 'Requires ≥ 40 PC balance. 50% chance to double your wager or lose it all!' },
-            { id: 'mirage', name: 'Mirage', icon: '🏜️', tier: 2, price: 30, type: 'Illusion', desc: 'Lasts 15 mins. Creates 3 fake cards in your inventory to confuse stealers.' },
-            { id: 'speed', name: 'Speed', icon: '⚡', tier: 2, price: 35, type: 'Buff', desc: 'Lasts 20 mins. Reduces your card usage cooldowns by 50%.' },
-            { id: 'blackout', name: 'Blackout', icon: '🕶️', tier: 2, price: 35, type: 'Utility', desc: 'Hides your coin balance and active cards from /profile lookups for 1 hour.' },
-            { id: 'black_market', name: 'Black Market', icon: '💰', tier: 2, price: 50, type: 'Economy', desc: 'Grants 50% discount on all store card purchases for 15 minutes.' },
-            { id: 'shackles', name: 'Shackles', icon: '⛓️', tier: 2, price: 50, type: 'Debuff', desc: 'Shackles a target player for 15 mins, preventing them from using cards.' },
-            { id: 'frenzy', name: 'Frenzy', icon: '🔀', tier: 2, price: 60, type: 'Buff', desc: 'Grants 3 consecutive instant card uses with 0s cooldown.' },
-            { id: 'ricochet', name: 'Ricochet', icon: '↪️', tier: 2, price: 60, type: 'Defense', desc: 'Lasts 20 mins. Reflects 100% of negative card attacks back onto the attacker.' },
-            { id: 'dispel', name: 'Dispel', icon: '🪄', tier: 2, price: 40, type: 'Utility', desc: 'Cleanses all active negative status debuffs from yourself or target ally.' },
-            { id: 'devil', name: 'Devil', icon: '😈', tier: 3, price: 100, type: 'Offensive', desc: 'Steals 30% of a target player\'s total Power Coins.' },
-            { id: 'inflation', name: 'Inflation', icon: '📈', tier: 3, price: 150, type: 'Economy', desc: 'Doubles /store card prices for all other players for 30 minutes.' },
-            { id: 'god', name: 'God', icon: '👑', tier: 3, price: 250, type: 'Ultimate', desc: 'Unleashes Blessing, Smite (Max 2/24h), or Tribute (Max 1/24h with player DM alerts). Max 2 uses/day.' }
-        ];
+            {
+                        "id": "speed",
+                        "name": "Speed",
+                        "icon": "⚡️",
+                        "tier": 1,
+                        "price": 20,
+                        "requires_target": false,
+                        "desc": "Reduces the cooldown time on your card usage by half for the next 1 hour."
+            },
+            {
+                        "id": "vision",
+                        "name": "Vision",
+                        "icon": "👁️",
+                        "tier": 1,
+                        "price": 20,
+                        "requires_target": true,
+                        "desc": "Secretly view the card inventory of a target player."
+            },
+            {
+                        "id": "angel",
+                        "name": "Angel",
+                        "icon": "👼",
+                        "tier": 1,
+                        "price": 20,
+                        "requires_target": true,
+                        "desc": "Gift 20 of your own Power Coins to another player."
+            },
+            {
+                        "id": "blackout",
+                        "name": "Blackout",
+                        "icon": "🕶️",
+                        "tier": 1,
+                        "price": 25,
+                        "requires_target": false,
+                        "desc": "For 3 hours, you are immune to Vision and Spotlight cards."
+            },
+            {
+                        "id": "reroll",
+                        "name": "Re-roll",
+                        "icon": "♻️",
+                        "tier": 1,
+                        "price": 15,
+                        "requires_target": false,
+                        "desc": "Discard your entire hand to gain back 75% of its total coin value."
+            },
+            {
+                        "id": "black_market",
+                        "name": "Black Market",
+                        "icon": "💰",
+                        "tier": 1,
+                        "price": 40,
+                        "requires_target": false,
+                        "desc": "For 1 hour, all items in the store are 50% off for you."
+            },
+            {
+                        "id": "lottery_ticket",
+                        "name": "Lottery Ticket",
+                        "icon": "🎟️",
+                        "tier": 1,
+                        "price": 5,
+                        "requires_target": false,
+                        "desc": "A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky."
+            },
+            {
+                        "id": "flame",
+                        "name": "Flame",
+                        "icon": "🔥",
+                        "tier": 2,
+                        "price": 20,
+                        "requires_target": true,
+                        "desc": "Burn 15 Power Coins from a target player."
+            },
+            {
+                        "id": "glitch",
+                        "name": "Glitch",
+                        "icon": "🌀",
+                        "tier": 2,
+                        "price": 30,
+                        "requires_target": true,
+                        "desc": "Force a target player to randomly discard one of their cards."
+            },
+            {
+                        "id": "shackle",
+                        "name": "Shackle",
+                        "icon": "⛓️",
+                        "tier": 2,
+                        "price": 30,
+                        "requires_target": true,
+                        "desc": "For 1 hour, your target is unable to use any cards."
+            },
+            {
+                        "id": "spotlight",
+                        "name": "Spotlight",
+                        "icon": "💡",
+                        "tier": 2,
+                        "price": 25,
+                        "requires_target": true,
+                        "desc": "Publicly reveal a target player's entire card inventory to the group."
+            },
+            {
+                        "id": "time_warp",
+                        "name": "Time Warp",
+                        "icon": "⏳",
+                        "tier": 2,
+                        "price": 25,
+                        "requires_target": true,
+                        "desc": "Immediately end an active Karma or Shackle effect on a target player."
+            },
+            {
+                        "id": "mirage",
+                        "name": "Mirage",
+                        "icon": "🏜️",
+                        "tier": 2,
+                        "price": 25,
+                        "requires_target": false,
+                        "desc": "For 1 hour, Vision/Spotlight used on you will show a fake hand."
+            },
+            {
+                        "id": "dispel",
+                        "name": "Dispel",
+                        "icon": "💨",
+                        "tier": 2,
+                        "price": 30,
+                        "requires_target": false,
+                        "desc": "Immediately removes Shackle and personal Inflation effects from yourself."
+            },
+            {
+                        "id": "double_or_nothing",
+                        "name": "Double or Nothing",
+                        "icon": "🎲",
+                        "tier": 2,
+                        "price": 20,
+                        "requires_target": true,
+                        "desc": "Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins)."
+            },
+            {
+                        "id": "forcefield",
+                        "name": "Forcefield",
+                        "icon": "🛡️",
+                        "tier": 3,
+                        "price": 40,
+                        "requires_target": false,
+                        "desc": "Block the next negative card used on you."
+            },
+            {
+                        "id": "trap",
+                        "name": "Trap",
+                        "icon": "🪤",
+                        "tier": 3,
+                        "price": 50,
+                        "requires_target": false,
+                        "desc": "Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins."
+            },
+            {
+                        "id": "ricochet",
+                        "name": "Ricochet",
+                        "icon": "↪️",
+                        "tier": 3,
+                        "price": 40,
+                        "requires_target": false,
+                        "desc": "Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender)."
+            },
+            {
+                        "id": "clairvoyance",
+                        "name": "Clairvoyance",
+                        "icon": "🔮",
+                        "tier": 3,
+                        "price": 40,
+                        "requires_target": true,
+                        "desc": "Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout."
+            },
+            {
+                        "id": "devil",
+                        "name": "Devil",
+                        "icon": "😈",
+                        "tier": 3,
+                        "price": 35,
+                        "requires_target": true,
+                        "desc": "Steal 25 Power Coins from an opponent."
+            },
+            {
+                        "id": "karma",
+                        "name": "Karma",
+                        "icon": "⚖️",
+                        "tier": 3,
+                        "price": 45,
+                        "requires_target": false,
+                        "desc": "For 2 hours, any negative card used on you is reflected back to the sender."
+            },
+            {
+                        "id": "swap",
+                        "name": "Swap",
+                        "icon": "🔄",
+                        "tier": 3,
+                        "price": 35,
+                        "requires_target": true,
+                        "desc": "Swap a random card from your hand with a random card from a target's hand."
+            },
+            {
+                        "id": "steal",
+                        "name": "Steal",
+                        "icon": "🥷",
+                        "tier": 3,
+                        "price": 40,
+                        "requires_target": true,
+                        "desc": "Steals a random card from the target user."
+            },
+            {
+                        "id": "inflation",
+                        "name": "Inflation",
+                        "icon": "📈",
+                        "tier": 3,
+                        "price": 60,
+                        "requires_target": false,
+                        "desc": "For 1 hour, all card prices in the store are doubled for everyone but you."
+            },
+            {
+                        "id": "purge",
+                        "name": "Purge",
+                        "icon": "🎯",
+                        "tier": 3,
+                        "price": 50,
+                        "requires_target": true,
+                        "desc": "Name a card. If your target has it, they are forced to discard it."
+            },
+            {
+                        "id": "vortex",
+                        "name": "Vortex",
+                        "icon": "🌪️",
+                        "tier": 3,
+                        "price": 30,
+                        "requires_target": false,
+                        "desc": "All players in the game (including you) must immediately discard one random card."
+            },
+            {
+                        "id": "amnesia",
+                        "name": "Amnesia",
+                        "icon": "❓",
+                        "tier": 3,
+                        "price": 75,
+                        "requires_target": true,
+                        "desc": "Force a target player to discard their entire hand of cards."
+            },
+            {
+                        "id": "frenzy",
+                        "name": "Frenzy",
+                        "icon": "🔀",
+                        "tier": 3,
+                        "price": 35,
+                        "requires_target": false,
+                        "desc": "Use your next two cards without a cooldown period."
+            },
+            {
+                        "id": "god",
+                        "name": "God",
+                        "icon": "🛐",
+                        "tier": 4,
+                        "price": 80,
+                        "requires_target": false,
+                        "desc": "Choose one of three powers: Blessing (give a Forcefield), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins)."
+            }
+];
 
         let activeTier = 'all';
 
@@ -374,12 +620,14 @@
 
         function filterCards(tier) {
             activeTier = tier;
-            ['all', '1', '2', '3'].forEach(t => {
+            ['all', '1', '2', '3', '4'].forEach(t => {
                 const btn = document.getElementById(`btn-${t}`);
-                if (t === tier) {
-                    btn.className = 'px-3 py-1.5 rounded-md bg-brand-cyan text-black font-bold transition-all';
-                } else {
-                    btn.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all';
+                if (btn) {
+                    if (t === tier) {
+                        btn.className = 'px-3 py-1.5 rounded-md bg-brand-cyan text-black font-bold transition-all';
+                    } else {
+                        btn.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all';
+                    }
                 }
             });
             renderCards();
