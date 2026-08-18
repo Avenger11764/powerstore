@@ -1841,7 +1841,7 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if event_name == 'bogo':
         update_game_state({'bogo_active_until': now + (15 * 60)})
-        await broadcast_event_message(context.bot, "🎁 *BOGO EVENT STARTED!* 🎁\n\nFor 15 minutes, store purchases for MSGC registered players include a FREE Tier 1 or 2 card!", context)
+        await broadcast_event_message(context.bot, "🎁 *BOGO EVENT STARTED!* 🎁\n\nFor 15 minutes, store purchases for MSGC registered players include a FREE Tier 1 or 2 card!", context, gif_url=EVENT_GIFS.get('bogo'))
         await safe_reply(update, "✅ BOGO event started for 15 minutes.")
 
     elif event_name == 'secretsanta':
@@ -1850,12 +1850,12 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     elif event_name == 'rushhour':
         update_game_state({'rush_hour_until': now + (60 * 60)})
-        await broadcast_event_message(context.bot, "⏰ *RUSH HOUR HAS BEGUN!* ⏰\n\nFor 1 hour, all card cooldowns are disabled for MSGC registered players!", context)
+        await broadcast_event_message(context.bot, "⏰ *RUSH HOUR HAS BEGUN!* ⏰\n\nFor 1 hour, all card cooldowns are disabled for MSGC registered players!", context, gif_url=EVENT_GIFS.get('rushhour'))
         await safe_reply(update, "✅ Rush Hour started for 1 hour.")
 
     elif event_name == 'truce':
         update_game_state({'truce_until': now + (15 * 60)})
-        await broadcast_event_message(context.bot, "🤝 *A TRUCE HAS BEEN CALLED!* 🤝\n\nFor 15 minutes, negative cards are disabled for MSGC registered players!", context)
+        await broadcast_event_message(context.bot, "🤝 *A TRUCE HAS BEEN CALLED!* 🤝\n\nFor 15 minutes, negative cards are disabled for MSGC registered players!", context, gif_url=EVENT_GIFS.get('truce'))
         await safe_reply(update, "✅ Truce event started for 15 minutes.")
 
     elif event_name == 'gambit':
@@ -1871,12 +1871,12 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             
         if context.job_queue:
             context.job_queue.run_once(coin_rush_end, duration)
-        await broadcast_event_message(context.bot, "💰 *COIN RUSH!* 💰\n\nFor 10 minutes, messages in group chats drop free Power Coins for MSGC registered players!", context)
+        await broadcast_event_message(context.bot, "💰 *COIN RUSH!* 💰\n\nFor 10 minutes, messages in group chats drop free Power Coins for MSGC registered players!", context, gif_url=EVENT_GIFS.get('coinrush'))
         await safe_reply(update, "✅ Coin Rush started for 10 minutes.")
 
     elif event_name == 'freebiefrenzy':
         update_game_state({'freebie_frenzy_until': now + (15 * 60)})
-        await broadcast_event_message(context.bot, "🎁 *FREEBIE FRENZY!* 🎁\n\nFor 15 minutes, Tier 1 cards (except Angel) are FREE in the store for MSGC registered players!", context)
+        await broadcast_event_message(context.bot, "🎁 *FREEBIE FRENZY!* 🎁\n\nFor 15 minutes, Tier 1 cards (except Angel) are FREE in the store for MSGC registered players!", context, gif_url=EVENT_GIFS.get('freebiefrenzy'))
         await safe_reply(update, "✅ Freebie Frenzy started for 15 minutes.")
 
     else:
@@ -1979,8 +1979,18 @@ async def disabledcards_command(update: Update, context: ContextTypes.DEFAULT_TY
 
 # --- EVENT SYSTEM ---
 
-async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.DEFAULT_TYPE = None):
-    """Utility to broadcast an event announcement to tracked group chats, MSGC player DMs, and activity log."""
+EVENT_GIFS = {
+    'bogo': None,
+    'secretsanta': None,
+    'rushhour': None,
+    'truce': None,
+    'gambit': None,
+    'coinrush': None,
+    'freebiefrenzy': None
+}
+
+async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.DEFAULT_TYPE = None, gif_url: str = None):
+    """Utility to broadcast an event announcement to tracked group chats, MSGC player DMs, and activity log with GIF support."""
     await log_activity(bot, message, title="🎉 Power Store Event!")
     
     group_chat_ids = set()
@@ -1995,7 +2005,13 @@ async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.
     # 1. Send broadcast to group chats
     for chat_id in group_chat_ids:
         try:
-            await bot.send_message(chat_id=chat_id, text=message)
+            if gif_url:
+                try:
+                    await bot.send_animation(chat_id=chat_id, animation=gif_url, caption=message)
+                except Exception:
+                    await bot.send_message(chat_id=chat_id, text=message)
+            else:
+                await bot.send_message(chat_id=chat_id, text=message)
         except Exception as e:
             logger.error(f"Failed to send event broadcast to chat {chat_id}: {e}")
 
@@ -2004,7 +2020,13 @@ async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.
     for p in all_players:
         if bool(p.get('msgc_registered', False)) and p.get('user_id'):
             try:
-                await bot.send_message(chat_id=p['user_id'], text=message)
+                if gif_url:
+                    try:
+                        await bot.send_animation(chat_id=p['user_id'], animation=gif_url, caption=message)
+                    except Exception:
+                        await bot.send_message(chat_id=p['user_id'], text=message)
+                else:
+                    await bot.send_message(chat_id=p['user_id'], text=message)
             except Exception as e:
                 logger.warning(f"Could not send event DM to player {p['user_id']}: {e}")
 
