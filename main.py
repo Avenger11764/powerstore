@@ -1980,13 +1980,13 @@ async def disabledcards_command(update: Update, context: ContextTypes.DEFAULT_TY
 # --- EVENT SYSTEM ---
 
 EVENT_GIFS = {
-    'bogo': None,
-    'secretsanta': None,
-    'rushhour': None,
-    'truce': None,
-    'gambit': None,
-    'coinrush': None,
-    'freebiefrenzy': None
+    'bogo': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExamNmaWx0djJ4ZDF5cWsxcmd4b2dtaXd2ajJnOG02c20zcGxjNGNpYiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/1dTRVFMsrGl3yJDjet/giphy.gif',
+    'secretsanta': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaTY3ejVldnA4NTZtZ2ZoOWgzOXBhcXY0bm5rdDMyYTl0YWVnZWdzNCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/N9Omg9KI4KSCPTYzQ5/giphy.gif',
+    'rushhour': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnBucnd1M3Fremd1MGFoYXh4aGQ3MnlkNTBkbXpzOGZycmk2ZHhncSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/xT4uQyZJVKYYHmFqIU/giphy.gif',
+    'truce': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExc2N1YmF4YTRnazExcHlqZG5zbnl4ZnR5ZjF0bHVyazFhdWkwOGFweSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/tVtwMX26fuyLvMOFUG/giphy.gif',
+    'gambit': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjh4Nmd3Nmdwam8xYTd4aDF1cDl6bzB0dGhmdTg5YThrbnZvOHV2ayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26BkMXGAvU3IOi6ti/giphy.gif',
+    'coinrush': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcjgxYWE2cG81ajQxMDVteWE4ZXd4cTJ4amJmM2N4NmQxbzdkbnR1dSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/8Rgat2FUwHFGprw3K6/giphy.gif',
+    'freebiefrenzy': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWM5NnAxNmpqMDRjbmJuOHI3dm0wbTgzNDQ0czFvemo3bjY0bG04bSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/PtC8Xg71JB8hKn7ZmS/giphy.gif'
 }
 
 async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.DEFAULT_TYPE = None, gif_url: str = None):
