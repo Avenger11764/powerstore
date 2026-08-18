@@ -1661,13 +1661,15 @@ async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
 
         now = time.time()
-        report_lines = [f"📊 *All Players Report ({len(all_players)} Total)*\n"]
-        for p in all_players:
-            username = p.get('username') or f"ID: {p.get('user_id')}"
-            safe_username = escape_markdown_v2(username)
+        chunks = []
+        current_chunk = [f"📊 *All Players Report ({len(all_players)} Total)*\n"]
+
+        for i, p in enumerate(all_players, 1):
+            name = p.get('first_name') or p.get('username') or f"ID: {p.get('user_id')}"
+            username = f" (@{p.get('username')})" if p.get('username') else ""
             coins = p.get('coins', 0)
             cards_list = [POWER_CARDS[cid]['name'] for cid in p.get('cards', []) if cid in POWER_CARDS]
-            cards_str = escape_markdown_v2(", ".join(cards_list) if cards_list else "None")
+            cards_str = ", ".join(cards_list) if cards_list else "None"
             
             p_status = p.get('status', {}) or {}
             s_badges = []
@@ -1686,21 +1688,27 @@ async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             if p_status.get('speed_active_until', 0) > now: s_badges.append("Speed ⚡️")
             if bool(p.get('msgc_registered', False)): s_badges.append("MSGC ✅")
 
-            status_str = escape_markdown_v2(", ".join(s_badges))
+            status_str = ", ".join(s_badges)
 
-            report_lines.append(
-                f"👤 *@{safe_username}*\n"
+            entry = (
+                f"{i}. 👤 *{name}*{username}\n"
                 f"    💰 Coins: {coins} PC\n"
                 f"    🎴 Cards: {cards_str}\n"
                 f"    ✨ Status: {status_str}\n"
             )
+            current_chunk.append(entry)
 
-        report = "\n".join(report_lines)
-        await safe_reply(update, report, parse_mode='MarkdownV2')
+            # Split into chunks of 10 players to avoid Telegram 4096 char limits
+            if len(current_chunk) >= 11 or i == len(all_players):
+                chunks.append("\n".join(current_chunk))
+                current_chunk = []
+
+        for chunk in chunks:
+            await safe_reply(update, chunk)
 
     except Exception as e:
         logger.error(f"Error in /allplayers command: {e}")
-        await safe_reply(update, "An error occurred while fetching player data.")
+        await safe_reply(update, f"An error occurred while fetching player data: {e}")
 
 async def award_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to award coins to a player."""
