@@ -72,7 +72,7 @@ POWER_CARDS = {
     # Tier 1: Utility & Minor Effects
     'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZWZlbjB5YXZibzdnZmF4MG05Mm02dDc0ejZwcnJ2eHU5YTQwcWpweCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ornjIhZGFWpbcGMAU/giphy.gif'},
     'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2JkamxzaTNwMXo4ZXJreHl5a3M5dnFxMGowNTdsbm9sbmRpbnhhOSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bufkPz3LRof205G/giphy.gif'},
-    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player.', 'price': 20, 'icon': '👼', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
+    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player (Max 2 times per target player in 24 hours).', 'price': 20, 'icon': '👼', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
     'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWFwbWJkYmZsN3Bmbm03aTM1NXh4NWQ3Njd4aDM5bDJyczZlODA5ZCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Kfg01zJWGDMT6/giphy.gif'},
     'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTdyZng0bzloNnlvajdzdDIxc2VjMjl2OTN4MW9wdzlmbHZ0amd2ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Loe03BsYRrv13l8h9q/giphy.gif'},
     'black_market': {'name': 'Black Market', 'description': 'For 1 minute, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJsaXhoOTRsc2V6dHU0YnFyNTl6dHR6d2FoZnM1NXZoMjU2YnU5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l3vRl0hL5yTjuOFji/giphy.gif'},
@@ -1148,9 +1148,22 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
     elif card_id == 'angel':
         if user_data.get('coins', 0) < 20:
             raise Exception("You need at least 20 coins to use the Angel card.")
+
+        # 24-Hour Per-Target Limit Check for Angel Card
+        now_time = time.time()
+        angel_history = user_status.get('angel_uses_24h', [])
+        recent_angel_uses = [entry for entry in angel_history if isinstance(entry, dict) and (now_time - entry.get('timestamp', 0)) < 86400]
+        
+        target_uses_count = sum(1 for entry in recent_angel_uses if str(entry.get('target_id')) == str(target_id))
+        if target_uses_count >= 2:
+            raise Exception(f"👼 You can only use the Angel card on {target_name} at most 2 times in 24 hours! (Already used {target_uses_count}/2)")
+
+        recent_angel_uses.append({'target_id': str(target_id), 'timestamp': now_time})
+        user_status['angel_uses_24h'] = recent_angel_uses
+
         user_data['coins'] -= 20
         update_player_data(target_id, {'coins': target_data.get('coins', 0) + 20})
-        effect_message = f"👼 {user_name} used an Angel card to gift 20 Power Coins to {target_name}!"
+        effect_message = f"👼 {user_name} used an Angel card to gift 20 Power Coins to {target_name}! ({target_uses_count + 1}/2 Angel uses on {target_name} in 24h)"
     elif card_id == 'devil':
         stolen = min(25, target_data.get('coins', 0))
         update_player_data(target_id, {'coins': target_data.get('coins', 0) - stolen})
