@@ -818,6 +818,7 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     bogo_active = game_state.get('bogo_active_until', 0) > time.time()
     bonus_card_msg = ""
+    bogo_bonus_card = None
     if bogo_active:
         eligible_bogo = [cid for cid, c in POWER_CARDS.items() if c.get('tier') in [1, 2] and cid not in new_cards]
         if eligible_bogo:
