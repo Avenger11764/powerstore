@@ -1980,7 +1980,7 @@ async def disabledcards_command(update: Update, context: ContextTypes.DEFAULT_TY
 # --- EVENT SYSTEM ---
 
 async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.DEFAULT_TYPE = None):
-    """Utility to broadcast an event announcement to tracked group chats and activity log."""
+    """Utility to broadcast an event announcement to tracked group chats, MSGC player DMs, and activity log."""
     await log_activity(bot, message, title="🎉 Power Store Event!")
     
     group_chat_ids = set()
@@ -1992,14 +1992,24 @@ async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.
     if isinstance(stored_chats, list):
         group_chat_ids.update(stored_chats)
 
+    # 1. Send broadcast to group chats
     for chat_id in group_chat_ids:
         try:
             await bot.send_message(chat_id=chat_id, text=message)
         except Exception as e:
             logger.error(f"Failed to send event broadcast to chat {chat_id}: {e}")
 
+    # 2. Send DM notification to all MSGC registered players
+    all_players = get_all_players()
+    for p in all_players:
+        if bool(p.get('msgc_registered', False)) and p.get('user_id'):
+            try:
+                await bot.send_message(chat_id=p['user_id'], text=message)
+            except Exception as e:
+                logger.warning(f"Could not send event DM to player {p['user_id']}: {e}")
+
 async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
-    """Executes Secret Santa card/coin gift exchange across all MSGC registered players."""
+    """Executes Secret Santa card/coin gift exchange across all MSGC registered players with direct DM notifications."""
     all_players = get_all_players()
     msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False))]
 
@@ -2050,6 +2060,25 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
 
                 card_name = POWER_CARDS.get(card_to_send, {}).get('name', card_to_send)
                 summary_messages.append(f"🎁 {sender_name} gifted a {card_name} card to {receiver_name}!")
+
+                # Send DM to Receiver
+                try:
+                    await bot.send_message(
+                        chat_id=receiver_id,
+                        text=f"🎅 *Secret Santa Gift!* 🎅\n\nYou received a *{card_name}* card from {sender_name} (@{sender_data.get('username', 'user')})!"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not send Secret Santa DM to receiver {receiver_id}: {e}")
+
+                # Send DM to Sender
+                try:
+                    await bot.send_message(
+                        chat_id=sender_id,
+                        text=f"🎅 *Secret Santa Gift Sent!* 🎅\n\nYou gifted your *{card_name}* card to {receiver_name} (@{receiver_data.get('username', 'user')})!"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not send Secret Santa DM to sender {sender_id}: {e}")
+
             else:
                 sender_coins = sender_data.get('coins', 0)
                 coins_to_send = min(50, sender_coins)
@@ -2058,6 +2087,25 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
                     update_player_data(sender_id, {'coins': sender_coins - coins_to_send})
                     update_player_data(receiver_id, {'coins': receiver_coins + coins_to_send})
                     summary_messages.append(f"💰 {sender_name} gifted {coins_to_send} PC to {receiver_name}!")
+
+                    # Send DM to Receiver
+                    try:
+                        await bot.send_message(
+                            chat_id=receiver_id,
+                            text=f"🎅 *Secret Santa Gift!* 🎅\n\nYou received *{coins_to_send} Power Coins* from {sender_name} (@{sender_data.get('username', 'user')})!"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Could not send Secret Santa DM to receiver {receiver_id}: {e}")
+
+                    # Send DM to Sender
+                    try:
+                        await bot.send_message(
+                            chat_id=sender_id,
+                            text=f"🎅 *Secret Santa Gift Sent!* 🎅\n\nYou gifted *{coins_to_send} Power Coins* to {receiver_name} (@{receiver_data.get('username', 'user')})!"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Could not send Secret Santa DM to sender {sender_id}: {e}")
+
                 else:
                     summary_messages.append(f"💨 {sender_name} had no gifts/coins to give to {receiver_name}.")
         except Exception as e:
@@ -2066,7 +2114,7 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
     await broadcast_event_message(bot, "\n".join(summary_messages), context)
 
 async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
-    """Executes Gambit event: awards a random non-God card to every MSGC registered player."""
+    """Executes Gambit event: awards a random non-God card to every MSGC registered player with DM notifications."""
     all_players = get_all_players()
     msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False))]
 
@@ -2092,6 +2140,16 @@ async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
 
             update_player_data(player_id, {'cards': player_cards})
             summary_messages.append(f"🎁 {player_name} received a {card_name} card!")
+
+            # Send DM to player
+            try:
+                await bot.send_message(
+                    chat_id=player_id,
+                    text=f"🎲 *Gambit Event Award!* 🎲\n\nYou received a free *{card_name}* card from the Gambit event!"
+                )
+            except Exception as e:
+                logger.warning(f"Could not send Gambit DM to player {player_id}: {e}")
+
         except Exception as e:
             logger.error(f"Error awarding Gambit card to player {player_id}: {e}")
 
