@@ -106,6 +106,7 @@ Admins specified in `config.py` (`ADMIN_USER_IDS`) have full access to managemen
 | :--- | :--- | :--- |
 | `/startevent` | `/startevent <event_name>` | Launches one of the 7 admin events. |
 | `/endevent` | `/endevent` | Clears all active events globally. |
+| `/revertevent` | `/revertevent <event_name>` | Reverts effects of an event (takes back Gambit cards, returns Secret Santa gifts, or cancels active timers). |
 | `/disablecard` | `/disablecard <card_name>` | Disables a card from store purchase and usage. |
 | `/enablecard` | `/enablecard <card_name>` | Re-enables a previously disabled card. |
 | `/disabledcards`| `/disabledcards` | Views all currently disabled cards. |

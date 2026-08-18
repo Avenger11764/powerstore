@@ -1897,6 +1897,114 @@ async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     })
     await safe_reply(update, "🛑 All active events have been ended.")
 
+async def revertevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to revert active or recently executed event effects."""
+    if not is_admin(update.effective_user.id):
+        await safe_reply(update, "You are not authorized to use this command.")
+        return
+
+    if not context.args:
+        await safe_reply(update,
+            "Usage: /revertevent <event_name>\n\n"
+            "Available Revert Targets:\n"
+            "• gambit - Take back the free cards awarded in the last Gambit\n"
+            "• secretsanta - Return all gifted cards/coins from the last Secret Santa\n"
+            "• bogo / rushhour / truce / coinrush / freebiefrenzy - Cancel & revert active event immediately"
+        )
+        return
+
+    event_name = context.args[0].lower()
+    game_state = get_game_state()
+
+    if event_name == 'gambit':
+        records = game_state.get('last_gambit_awards', [])
+        if not records:
+            await safe_reply(update, "❌ No recorded Gambit event awards found to revert.")
+            return
+
+        reverted_count = 0
+        for item in records:
+            user_id = item.get('user_id')
+            card_id = item.get('card_id')
+            if not user_id or not card_id: continue
+
+            p_data = get_player_data(user_id)
+            if p_data:
+                cards = list(p_data.get('cards', []))
+                if card_id in cards:
+                    cards.remove(card_id)
+                    update_player_data(user_id, {'cards': cards})
+                    reverted_count += 1
+                    try:
+                        card_name = POWER_CARDS.get(card_id, {}).get('name', card_id)
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text=f"↩️ *Gambit Event Reverted!* ↩️\nThe free *{card_name}* card awarded from Gambit has been removed from your inventory by an Admin."
+                        )
+                    except Exception:
+                        pass
+
+        update_game_state({'last_gambit_awards': []})
+        await broadcast_event_message(context.bot, f"↩️ *GAMBIT EVENT REVERTED!* ↩️\n\nAll free cards awarded during Gambit ({reverted_count} cards) have been taken back.", context)
+        await safe_reply(update, f"✅ Gambit event reverted. {reverted_count} cards removed from players.")
+
+    elif event_name == 'secretsanta':
+        records = game_state.get('last_secretsanta_swaps', [])
+        if not records:
+            await safe_reply(update, "❌ No recorded Secret Santa event swaps found to revert.")
+            return
+
+        reverted_count = 0
+        for item in records:
+            s_id = item.get('sender_id')
+            r_id = item.get('receiver_id')
+            g_type = item.get('type')
+            val = item.get('val')
+            if not s_id or not r_id: continue
+
+            s_data = get_player_data(s_id)
+            r_data = get_player_data(r_id)
+
+            if g_type == 'card':
+                if r_data:
+                    r_cards = list(r_data.get('cards', []))
+                    if val in r_cards:
+                        r_cards.remove(val)
+                        update_player_data(r_id, {'cards': r_cards})
+                if s_data:
+                    s_cards = list(s_data.get('cards', []))
+                    s_cards.append(val)
+                    update_player_data(s_id, {'cards': s_cards})
+                reverted_count += 1
+            elif g_type == 'coins':
+                if r_data:
+                    r_coins = max(0, r_data.get('coins', 0) - val)
+                    update_player_data(r_id, {'coins': r_coins})
+                if s_data:
+                    s_coins = s_data.get('coins', 0) + val
+                    update_player_data(s_id, {'coins': s_coins})
+                reverted_count += 1
+
+        update_game_state({'last_secretsanta_swaps': []})
+        await broadcast_event_message(context.bot, "↩️ *SECRET SANTA REVERTED!* ↩️\n\nAll gifted cards and coins have been returned to their original owners.", context)
+        await safe_reply(update, f"✅ Secret Santa event reverted ({reverted_count} transactions returned).")
+
+    elif event_name in ['bogo', 'rushhour', 'truce', 'coinrush', 'freebiefrenzy']:
+        key_map = {
+            'bogo': 'bogo_active_until',
+            'rushhour': 'rush_hour_until',
+            'truce': 'truce_until',
+            'coinrush': 'coin_rush_until',
+            'freebiefrenzy': 'freebie_frenzy_until'
+        }
+        target_key = key_map[event_name]
+        update_game_state({target_key: 0})
+        await broadcast_event_message(context.bot, f"🛑 *{event_name.upper()} EVENT CANCELLED!* 🛑\n\nThe active event '{event_name}' has been stopped and reverted by the Admin.", context)
+        await safe_reply(update, f"✅ Active '{event_name}' event stopped.")
+
+    else:
+        await safe_reply(update, f"Unknown event: '{event_name}'. Usage: /revertevent <bogo|secretsanta|rushhour|truce|gambit|coinrush|freebiefrenzy>")
+
 async def disablecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to temporarily disable a card from purchase and usage."""
     if not is_admin(update.effective_user.id):
@@ -2057,6 +2165,7 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
 
     summary_messages = ["🎁 *Secret Santa Event!* 🎁\n\nGifts have been exchanged between MSGC registered players:"]
     eligible_santa_cards = [cid for cid, c in POWER_CARDS.items() if c.get('tier') in [1, 2]]
+    swaps_record = []
 
     for i, sender_id in enumerate(player_ids):
         receiver_id = receivers[i]
@@ -2079,6 +2188,7 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
 
                 update_player_data(sender_id, {'cards': sender_cards})
                 update_player_data(receiver_id, {'cards': receiver_cards})
+                swaps_record.append({'sender_id': sender_id, 'receiver_id': receiver_id, 'type': 'card', 'val': card_to_send})
 
                 card_name = POWER_CARDS.get(card_to_send, {}).get('name', card_to_send)
                 summary_messages.append(f"🎁 {sender_name} gifted a {card_name} card to {receiver_name}!")
@@ -2108,6 +2218,7 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
                     receiver_coins = receiver_data.get('coins', 0)
                     update_player_data(sender_id, {'coins': sender_coins - coins_to_send})
                     update_player_data(receiver_id, {'coins': receiver_coins + coins_to_send})
+                    swaps_record.append({'sender_id': sender_id, 'receiver_id': receiver_id, 'type': 'coins', 'val': coins_to_send})
                     summary_messages.append(f"💰 {sender_name} gifted {coins_to_send} PC to {receiver_name}!")
 
                     # Send DM to Receiver
@@ -2133,7 +2244,8 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
         except Exception as e:
             logger.error(f"Error transferring Secret Santa gift ({sender_id} -> {receiver_id}): {e}")
 
-    await broadcast_event_message(bot, "\n".join(summary_messages), context)
+    update_game_state({'last_secretsanta_swaps': swaps_record})
+    await broadcast_event_message(bot, "\n".join(summary_messages), context, gif_url=EVENT_GIFS.get('secretsanta'))
 
 async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
     """Executes Gambit event: awards a random non-God card to every MSGC registered player with DM notifications."""
@@ -2147,6 +2259,7 @@ async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
 
     gambit_cards = [card_id for card_id in POWER_CARDS if card_id != 'god']
     summary_messages = ["🎲 *Gambit Event!* 🎲\n\nEvery MSGC registered player receives a random card!"]
+    gambit_record = []
 
     for player in msgc_players:
         player_id = player.get('user_id')
@@ -2161,6 +2274,7 @@ async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
                 player_cards.append(random_card)
 
             update_player_data(player_id, {'cards': player_cards})
+            gambit_record.append({'user_id': player_id, 'card_id': random_card})
             summary_messages.append(f"🎁 {player_name} received a {card_name} card!")
 
             # Send DM to player
@@ -2175,7 +2289,8 @@ async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"Error awarding Gambit card to player {player_id}: {e}")
 
-    await broadcast_event_message(bot, "\n".join(summary_messages), context)
+    update_game_state({'last_gambit_awards': gambit_record})
+    await broadcast_event_message(bot, "\n".join(summary_messages), context, gif_url=EVENT_GIFS.get('gambit'))
 
 async def handle_group_message_and_coin_rush(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tracks active group chat IDs and processes Coin Rush random coin drops."""
@@ -2230,6 +2345,9 @@ application.add_handler(CommandHandler("awardall", awardall_command))
 application.add_handler(CommandHandler("resetallcoins", resetallcoins_command))
 application.add_handler(CommandHandler("startevent", startevent_command))
 application.add_handler(CommandHandler("endevent", endevent_command))
+application.add_handler(CommandHandler("revertevent", revertevent_command))
+application.add_handler(CommandHandler("revertgambit", lambda u, c: c.args.insert(0, 'gambit') or revertevent_command(u, c)))
+application.add_handler(CommandHandler("revertsecretsanta", lambda u, c: c.args.insert(0, 'secretsanta') or revertevent_command(u, c)))
 application.add_handler(CommandHandler("givecard", givecard_command))
 application.add_handler(CommandHandler("allplayers", all_players_command))
 application.add_handler(CommandHandler("disablecard", disablecard_command))
