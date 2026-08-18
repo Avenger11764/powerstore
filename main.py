@@ -2171,7 +2171,7 @@ async def handle_group_message_and_coin_rush(update: Update, context: ContextTyp
         if random.random() < 0.25:
             drop = random.randint(2, 5)
             p_data = get_player_data(user.id)
-            if p_data:
+            if p_data and bool(p_data.get('msgc_registered', False)):
                 update_player_data(user.id, {'coins': p_data.get('coins', 0) + drop})
                 await safe_reply(update, f"💰 *Coin Rush Drop!* {user.first_name} received +{drop} Power Coins!")
 
