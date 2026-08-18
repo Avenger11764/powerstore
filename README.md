@@ -116,7 +116,7 @@ Admins specified in `config.py` (`ADMIN_USER_IDS`) have full access to managemen
 | `/awardall` | `/awardall <amount>` | Awards or deducts coins from ALL registered players. |
 | `/givecard` | `/givecard <Card Name> @username` | Directly places a card into a player's inventory. |
 | `/resetallcoins`| `/resetallcoins` | Resets all players to 5 PC and clears their card inventories. |
-| `/allplayers` | `/allplayers` | Displays a detailed report of all registered players and stats. |
+| `/allplayers` / `/players` | `/players` | Displays a detailed report of all registered players, coins, cards, and live statuses. |
 
 ---
 

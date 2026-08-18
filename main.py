@@ -1645,7 +1645,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 # --- ADMIN COMMANDS ---
 
 async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin command to view all player stats."""
+    """Admin command to view all players with their coin balance, cards, and current status."""
     if not is_admin(update.effective_user.id):
         await safe_reply(update, "You are not authorized to use this command.")
         return
@@ -1660,19 +1660,39 @@ async def all_players_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             await safe_reply(update, "No players have registered yet.")
             return
 
-        report_lines = ["📊 *All Players Report*\n"]
+        now = time.time()
+        report_lines = [f"📊 *All Players Report ({len(all_players)} Total)*\n"]
         for p in all_players:
             username = p.get('username') or f"ID: {p.get('user_id')}"
             safe_username = escape_markdown_v2(username)
             coins = p.get('coins', 0)
             cards_list = [POWER_CARDS[cid]['name'] for cid in p.get('cards', []) if cid in POWER_CARDS]
             cards_str = escape_markdown_v2(", ".join(cards_list) if cards_list else "None")
-            msgc_tag = " [MSGC]" if bool(p.get('msgc_registered', False)) else ""
             
+            p_status = p.get('status', {}) or {}
+            s_badges = []
+
+            if is_player_eliminated(p):
+                s_badges.append("Eliminated 💀")
+            else:
+                s_badges.append("Active 🟢")
+
+            if p_status.get('protected'): s_badges.append("Protected 🛡️")
+            if p_status.get('trap_active'): s_badges.append("Trap 🪤")
+            if p_status.get('shackled_until', 0) > now: s_badges.append("Shackled ⛓️")
+            if p_status.get('karma_active_until', 0) > now: s_badges.append("Karma ⚖️")
+            if p_status.get('blackout_until', 0) > now: s_badges.append("Blackout 🕶️")
+            if p_status.get('mirage_until', 0) > now: s_badges.append("Mirage 🏜️")
+            if p_status.get('speed_active_until', 0) > now: s_badges.append("Speed ⚡️")
+            if bool(p.get('msgc_registered', False)): s_badges.append("MSGC ✅")
+
+            status_str = escape_markdown_v2(", ".join(s_badges))
+
             report_lines.append(
-                f"\n👤 *@{safe_username}*{msgc_tag}\n"
+                f"👤 *@{safe_username}*\n"
                 f"    💰 Coins: {coins} PC\n"
-                f"    🎴 Cards: {cards_str}"
+                f"    🎴 Cards: {cards_str}\n"
+                f"    ✨ Status: {status_str}\n"
             )
 
         report = "\n".join(report_lines)
@@ -2439,6 +2459,7 @@ application.add_handler(CommandHandler("revertgambit", lambda u, c: c.args.inser
 application.add_handler(CommandHandler("revertsecretsanta", lambda u, c: c.args.insert(0, 'secretsanta') or revertevent_command(u, c)))
 application.add_handler(CommandHandler("givecard", givecard_command))
 application.add_handler(CommandHandler("allplayers", all_players_command))
+application.add_handler(CommandHandler("players", all_players_command))
 application.add_handler(CommandHandler("disablecard", disablecard_command))
 application.add_handler(CommandHandler("enablecard", enablecard_command))
 application.add_handler(CommandHandler("disabledcards", disabledcards_command))
