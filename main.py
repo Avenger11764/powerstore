@@ -245,6 +245,22 @@ def get_player_data(user_id: int) -> dict:
         logger.error(f"Error fetching player data for {user_id}: {e}")
         return None
 
+def is_player_eliminated(player_data: dict) -> bool:
+    """Returns True if a player's status is set to eliminated."""
+    if not player_data or not isinstance(player_data, dict):
+        return False
+    status = player_data.get('status', {})
+    if isinstance(status, str):
+        status = parse_json_dict(status)
+    if not isinstance(status, dict):
+        status = {}
+    
+    if status.get('eliminated') or status.get('is_eliminated') or str(status.get('state', '')).lower() == 'eliminated':
+        return True
+    if player_data.get('eliminated') or player_data.get('is_eliminated'):
+        return True
+    return False
+
 def get_player_by_username(username: str) -> dict:
     """Retrieves player data by Telegram username, first_name, in_game_name or ID."""
     if not db: return None
@@ -599,6 +615,8 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     is_affected_by_inflation = inflation_active and user_id != inflation_user_id and status.get('inflation_immunity_until', 0) < now
     if is_affected_by_inflation:
         status_list.append("Affected by Inflation 📈")
+    if is_player_eliminated(player_data):
+        status_list.append("Eliminated 💀")
     if player_data.get('msgc_registered'):
         status_list.append("MSGC Registered ✅")
 
@@ -671,6 +689,11 @@ async def store_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not update.effective_user:
         return
 
+    player_data = ensure_player_registered(update.effective_user.id, update.effective_user)
+    if is_player_eliminated(player_data):
+        await safe_reply(update, "💀 You have been eliminated from the game and cannot access the store.")
+        return
+
     text, reply_markup = build_store_menu(update.effective_user.id, update.effective_user)
     if reply_markup:
         await send_safe_message(msg or chat, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
@@ -684,6 +707,11 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     card_id = query.data.split('_', 1)[1]
     card = POWER_CARDS[card_id]
     user_id = query.from_user.id
+
+    player_data = ensure_player_registered(user_id, query.from_user)
+    if is_player_eliminated(player_data):
+        await query.edit_message_text("💀 You have been eliminated from the game and cannot purchase items.")
+        return
 
     game_state = get_game_state()
     player_data = ensure_player_registered(user_id, query.from_user)
@@ -747,6 +775,10 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     player_data = ensure_player_registered(user_id, query.from_user)
     if not player_data:
         await query.edit_message_text("Unable to process purchase. Please try again.")
+        return
+
+    if is_player_eliminated(player_data):
+        await query.edit_message_text("💀 You have been eliminated from the game and cannot purchase cards.")
         return
 
     current_cards = player_data.get('cards', [])
@@ -839,6 +871,10 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await safe_reply(update, "Unable to load profile. Please try again.")
         return
 
+    if is_player_eliminated(player_data):
+        await safe_reply(update, "💀 You have been eliminated from the game and cannot use cards.")
+        return
+
     now = time.time()
     status = player_data.get('status', {}) or {}
     game_state = get_game_state()
@@ -927,6 +963,9 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         user_is_msgc = bool(player_data.get('msgc_registered', False))
         target_player_data = get_player_data(target_user.id)
         if target_player_data:
+            if is_player_eliminated(target_player_data):
+                await safe_reply(update, f"💀 {target_user.first_name} has been eliminated from the game and cannot be targeted.")
+                return
             target_is_msgc = bool(target_player_data.get('msgc_registered', False))
             if user_is_msgc and not target_is_msgc:
                 await safe_reply(update, "❌ MSGC registered players can only use cards on other MSGC registered players.")
@@ -2084,6 +2123,56 @@ async def disabledcards_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     await safe_reply(update, "\n".join(lines), parse_mode='MarkdownV2')
 
+async def eliminate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to set a player's status to eliminated."""
+    if not is_admin(update.effective_user.id):
+        await safe_reply(update, "You are not authorized to use this command.")
+        return
+
+    if not context.args:
+        await safe_reply(update, "Usage: /eliminate <@username>")
+        return
+
+    username = context.args[0].lstrip('@')
+    target_player = get_player_by_username(username)
+    if not target_player:
+        await safe_reply(update, f"Player @{username} not found in database.")
+        return
+
+    status = parse_json_dict(target_player.get('status', {}))
+    status['eliminated'] = True
+    status['state'] = 'eliminated'
+
+    update_player_data(target_player['user_id'], {'status': status})
+    player_name = target_player.get('first_name') or username
+    await safe_reply(update, f"💀 Player {player_name} (@{username}) is now marked as ELIMINATED.")
+    await log_activity(context.bot, f"💀 Admin eliminated player {player_name} (@{username}).")
+
+async def uneliminate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to restore an eliminated player's status."""
+    if not is_admin(update.effective_user.id):
+        await safe_reply(update, "You are not authorized to use this command.")
+        return
+
+    if not context.args:
+        await safe_reply(update, "Usage: /uneliminate <@username>")
+        return
+
+    username = context.args[0].lstrip('@')
+    target_player = get_player_by_username(username)
+    if not target_player:
+        await safe_reply(update, f"Player @{username} not found in database.")
+        return
+
+    status = parse_json_dict(target_player.get('status', {}))
+    status['eliminated'] = False
+    status['state'] = 'active'
+
+    update_player_data(target_player['user_id'], {'status': status})
+    player_name = target_player.get('first_name') or username
+    await safe_reply(update, f"✅ Player {player_name} (@{username}) has been restored to ACTIVE status.")
+    await log_activity(context.bot, f"✅ Admin restored player {player_name} (@{username}).")
+
 
 # --- EVENT SYSTEM ---
 
@@ -2353,6 +2442,8 @@ application.add_handler(CommandHandler("allplayers", all_players_command))
 application.add_handler(CommandHandler("disablecard", disablecard_command))
 application.add_handler(CommandHandler("enablecard", enablecard_command))
 application.add_handler(CommandHandler("disabledcards", disabledcards_command))
+application.add_handler(CommandHandler("eliminate", eliminate_command))
+application.add_handler(CommandHandler("uneliminate", uneliminate_command))
 application.add_handler(CallbackQueryHandler(handle_inspect_callback, pattern="^inspect_"))
 application.add_handler(CallbackQueryHandler(handle_back_to_store_callback, pattern="^back_to_store$"))
 application.add_handler(CallbackQueryHandler(handle_buy_callback, pattern="^buy_"))

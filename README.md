@@ -110,6 +110,8 @@ Admins specified in `config.py` (`ADMIN_USER_IDS`) have full access to managemen
 | `/disablecard` | `/disablecard <card_name>` | Disables a card from store purchase and usage. |
 | `/enablecard` | `/enablecard <card_name>` | Re-enables a previously disabled card. |
 | `/disabledcards`| `/disabledcards` | Views all currently disabled cards. |
+| `/eliminate` | `/eliminate @username` | Marks a player as ELIMINATED (blocks them from store, card usage, and events). |
+| `/uneliminate` | `/uneliminate @username` | Restores an eliminated player to ACTIVE status. |
 | `/award` | `/award <amount> @username` | Awards or deducts (negative amount) coins from a player. |
 | `/awardall` | `/awardall <amount>` | Awards or deducts coins from ALL registered players. |
 | `/givecard` | `/givecard <Card Name> @username` | Directly places a card into a player's inventory. |
