@@ -27,7 +27,7 @@ Here is the exact price list, tier ranking, target type, and description of all 
 | **Angel** | 👼 | **20 PC** | Tier 1 | Targeted | Gift 20 of your own Power Coins to another player. |
 | **Blackout** | 🕶️ | **25 PC** | Tier 1 | Self/Global | For 3 hours, you are immune to Vision and Spotlight cards. |
 | **Re-roll** | ♻️ | **15 PC** | Tier 1 | Self/Global | Discard your entire hand to gain back 75% of its total coin value. |
-| **Black Market** | 💰 | **40 PC** | Tier 1 | Self/Global | For 1 hour, all items in the store are 50% off for you. |
+| **Black Market** | 💰 | **40 PC** | Tier 1 | Self/Global | For 1 minute, all items in the store are 50% off for you. |
 | **Lottery Ticket** | 🎟️ | **5 PC** | Tier 1 | Self/Global | A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky. |
 | **Flame** | 🔥 | **20 PC** | Tier 2 | Targeted | Burn 15 Power Coins from a target player. |
 | **Glitch** | 🌀 | **30 PC** | Tier 2 | Targeted | Force a target player to randomly discard one of their cards. |
