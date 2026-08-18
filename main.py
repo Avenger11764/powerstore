@@ -2300,9 +2300,9 @@ async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.
                 logger.warning(f"Could not send event DM to player {p['user_id']}: {e}")
 
 async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
-    """Executes Secret Santa card/coin gift exchange across all MSGC registered players with direct DM notifications."""
+    """Executes Secret Santa card/coin gift exchange across all active MSGC registered players with direct DM notifications."""
     all_players = get_all_players()
-    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False))]
+    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False)) and not is_player_eliminated(p)]
 
     if len(msgc_players) < 2:
         logger.info("Secret Santa cancelled: Less than 2 MSGC registered players.")
@@ -2409,9 +2409,9 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
     await broadcast_event_message(bot, "\n".join(summary_messages), context, gif_url=EVENT_GIFS.get('secretsanta'))
 
 async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
-    """Executes Gambit event: awards a random non-God card to every MSGC registered player with DM notifications."""
+    """Executes Gambit event: awards a random non-God card to every active MSGC registered player with DM notifications."""
     all_players = get_all_players()
-    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False))]
+    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False)) and not is_player_eliminated(p)]
 
     if not msgc_players:
         logger.info("Gambit cancelled: No MSGC registered players found.")
