@@ -1950,10 +1950,33 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await safe_reply(update, f"Unknown event: '{event_name}'. Use /startevent to see available events.")
 
 async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin command to clear and stop all active events."""
+    """Admin command to clear and stop active events (all or specific event)."""
     if not is_admin(update.effective_user.id):
         await safe_reply(update, "You are not authorized to use this command.")
         return
+
+    if context.args:
+        event_name = context.args[0].lower()
+        key_map = {
+            'bogo': ('bogo_active_until', 'BOGO Sale 🎁'),
+            'rushhour': ('rush_hour_until', 'Rush Hour ⏰'),
+            'truce': ('truce_until', 'Truce 🤝'),
+            'coinrush': ('coin_rush_until', 'Coin Rush 💰'),
+            'freebiefrenzy': ('freebie_frenzy_until', 'Freebie Frenzy 🎁')
+        }
+
+        if event_name in key_map:
+            target_key, display_name = key_map[event_name]
+            update_game_state({target_key: 0})
+            await broadcast_event_message(context.bot, f"🛑 *{display_name.upper()} EVENT ENDED!* 🛑\n\nThe '{display_name}' event has been ended by the Admin.", context)
+            await safe_reply(update, f"🛑 The '{display_name}' event has been ended.")
+            return
+        elif event_name in ['gambit', 'secretsanta']:
+            await revertevent_command(update, context)
+            return
+        else:
+            await safe_reply(update, f"Unknown event: '{event_name}'. Usage: /endevent [bogo|secretsanta|rushhour|truce|gambit|coinrush|freebiefrenzy]")
+            return
 
     update_game_state({
         'bogo_active_until': 0,
