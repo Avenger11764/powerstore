@@ -1950,7 +1950,7 @@ async def startevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await safe_reply(update, f"Unknown event: '{event_name}'. Use /startevent to see available events.")
 
 async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin command to clear all active events."""
+    """Admin command to clear and stop all active events."""
     if not is_admin(update.effective_user.id):
         await safe_reply(update, "You are not authorized to use this command.")
         return
@@ -1962,7 +1962,9 @@ async def endevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         'coin_rush_until': 0,
         'freebie_frenzy_until': 0
     })
-    await safe_reply(update, "🛑 All active events have been ended.")
+    
+    await broadcast_event_message(context.bot, "🛑 *ALL ACTIVE EVENTS HAVE BEEN ENDED!* 🛑\n\nAll event bonuses, store discounts, and cooldown overrides have now expired.", context)
+    await safe_reply(update, "🛑 All active events have been ended and announcement broadcasted.")
 
 async def revertevent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to revert active or recently executed event effects."""
@@ -2462,6 +2464,8 @@ application.add_handler(CommandHandler("awardall", awardall_command))
 application.add_handler(CommandHandler("resetallcoins", resetallcoins_command))
 application.add_handler(CommandHandler("startevent", startevent_command))
 application.add_handler(CommandHandler("endevent", endevent_command))
+application.add_handler(CommandHandler("stopevent", endevent_command))
+application.add_handler(CommandHandler("endevents", endevent_command))
 application.add_handler(CommandHandler("revertevent", revertevent_command))
 application.add_handler(CommandHandler("revertgambit", lambda u, c: c.args.insert(0, 'gambit') or revertevent_command(u, c)))
 application.add_handler(CommandHandler("revertsecretsanta", lambda u, c: c.args.insert(0, 'secretsanta') or revertevent_command(u, c)))
