@@ -826,7 +826,13 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             bonus_card_name = POWER_CARDS[bogo_bonus_card]['name']
             bonus_card_msg = f"\n🎁 BOGO Bonus! You also received a FREE {bonus_card_name} card!"
 
-    update_player_data(user_id, {'coins': new_coins, 'cards': new_cards})
+    card_costs = parse_json_dict(player_status.get('card_costs', {}))
+    card_costs[card_id] = price
+    if bogo_bonus_card:
+        card_costs[bogo_bonus_card] = 0
+
+    player_status['card_costs'] = card_costs
+    update_player_data(user_id, {'coins': new_coins, 'cards': new_cards, 'status': player_status})
 
     result = f"✅ Success! You bought a {card['name']} card for {price} PC.{bonus_card_msg}"
     await query.edit_message_text(text=result)
@@ -1101,8 +1107,16 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         cards_to_reroll = [c for c in user_cards if c != 'reroll']
         if not cards_to_reroll:
             raise Exception("You have no other cards to re-roll!")
-        val = sum(POWER_CARDS.get(c, {}).get('price', 0) for c in cards_to_reroll)
+        
+        card_costs = parse_json_dict(user_status.get('card_costs', {}))
+        val = sum(card_costs.get(c, 0) for c in cards_to_reroll)
         gained = int(val * 0.75)
+        
+        # Remove discarded cards from card_costs tracking
+        for c in cards_to_reroll:
+            card_costs.pop(c, None)
+        user_status['card_costs'] = card_costs
+
         user_cards = [c for c in user_cards if c not in cards_to_reroll]
         user_data['coins'] = user_data.get('coins', 0) + gained
         effect_message = f"♻️ {user_name} used Re-roll, discarded {len(cards_to_reroll)} cards, and regained {gained} coins!"
@@ -1838,7 +1852,11 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             
         c_list = list(target_data.get('cards', []))
         c_list.append(card_id)
-        update_player_data(target_data['user_id'], {'cards': c_list})
+        t_status = parse_json_dict(target_data.get('status', {}))
+        card_costs = parse_json_dict(t_status.get('card_costs', {}))
+        card_costs[card_id] = 0
+        t_status['card_costs'] = card_costs
+        update_player_data(target_data['user_id'], {'cards': c_list, 'status': t_status})
         card_name = POWER_CARDS[card_id]['name']
         
         # Send DM notification to the player
@@ -2415,7 +2433,12 @@ async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
             if random_card not in player_cards:
                 player_cards.append(random_card)
 
-            update_player_data(player_id, {'cards': player_cards})
+            player_status = parse_json_dict(player.get('status', {}))
+            card_costs = parse_json_dict(player_status.get('card_costs', {}))
+            card_costs[random_card] = 0
+            player_status['card_costs'] = card_costs
+
+            update_player_data(player_id, {'cards': player_cards, 'status': player_status})
             gambit_record.append({'user_id': player_id, 'card_id': random_card})
             summary_messages.append(f"🎁 {player_name} received a {card_name} card!")
 
