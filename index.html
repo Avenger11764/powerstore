@@ -1,238 +1,392 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Power Store Bot - A Telegram Game of Strategy</title>
+    <title>Power Store Bot | Ultimate Telegram Card Strategy Game</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            cyan: '#00f0ff',
+                            pink: '#ff007f',
+                            purple: '#7000ff',
+                            dark: '#0a0d14',
+                            card: '#121824',
+                            border: '#1e293b'
+                        }
+                    },
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
     <style>
-        /* Custom styles for the neon theme */
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #111827; /* bg-gray-900 */
+            background-color: #080b11;
+            color: #f1f5f9;
         }
 
-        .neon-text {
-            color: #fff;
-            text-shadow:
-                0 0 5px #0ff,
-                0 0 10px #0ff,
-                0 0 20px #0ff,
-                0 0 40px #0ff,
-                0 0 80px #0ff;
-        }
-        
-        .neon-text-pink {
-             color: #fff;
-            text-shadow:
-                0 0 5px #f0f,
-                0 0 10px #f0f,
-                0 0 20px #f0f,
-                0 0 40px #f0f,
-                0 0 80px #f0f;
+        .neon-glow-cyan {
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.6), 0 0 20px rgba(0, 240, 255, 0.4);
         }
 
-        .neon-box {
-            border: 2px solid #0ff;
-            box-shadow: 0 0 15px #0ff;
-            transition: all 0.3s ease-in-out;
-        }
-        
-        .neon-box:hover {
-            box-shadow: 0 0 25px #0ff, 0 0 40px #0ff;
-            transform: translateY(-5px);
+        .neon-glow-pink {
+            text-shadow: 0 0 10px rgba(255, 0, 127, 0.6), 0 0 20px rgba(255, 0, 127, 0.4);
         }
 
-        .neon-button {
-            border: 2px solid #f0f;
-            color: #f0f;
-            text-shadow: 0 0 8px #f0f;
-            box-shadow: 0 0 10px #f0f;
-            transition: all 0.3s ease-in-out;
+        .neon-border-cyan {
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
         }
 
-        .neon-button:hover {
-            background-color: #f0f;
-            color: #fff;
-            box-shadow: 0 0 20px #f0f, 0 0 30px #f0f;
+        .neon-border-cyan:hover {
+            border-color: rgba(0, 240, 255, 0.8);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
+            transform: translateY(-4px);
         }
-        
-        /* Custom scrollbar for a more thematic feel */
-        ::-webkit-scrollbar {
-            width: 8px;
+
+        .glass-header {
+            background: rgba(10, 13, 20, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
-        ::-webkit-scrollbar-track {
-            background: #111827;
+
+        .gradient-btn {
+            background: linear-gradient(135deg, #00f0ff 0%, #7000ff 100%);
+            transition: all 0.3s ease;
         }
-        ::-webkit-scrollbar-thumb {
-            background: #0ff;
-            border-radius: 10px;
+
+        .gradient-btn:hover {
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.5);
+            transform: scale(1.03);
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #0aa;
+
+        .gradient-badge {
+            background: linear-gradient(135deg, #ff007f 0%, #7000ff 100%);
         }
     </style>
 </head>
-<body class="text-gray-200">
+<body class="font-sans antialiased selection:bg-brand-cyan selection:text-black">
 
-    <!-- Header -->
-    <header class="bg-gray-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold neon-text">Power Store Bot</h1>
-            <nav class="hidden md:flex space-x-8">
-                <a href="#about" class="hover:text-cyan-300 transition-colors">About</a>
-                <a href="#cards" class="hover:text-cyan-300 transition-colors">The Cards</a>
-                <a href="#commands" class="hover:text-cyan-300 transition-colors">Commands</a>
+    <!-- Navbar -->
+    <header class="glass-header sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl">⚡</span>
+                <span class="font-orbitron font-extrabold text-2xl tracking-wider text-white neon-glow-cyan">POWER STORE</span>
+            </div>
+            <nav class="hidden md:flex space-x-8 font-medium text-sm text-slate-300">
+                <a href="#about" class="hover:text-brand-cyan transition-colors">Overview</a>
+                <a href="#cards" class="hover:text-brand-cyan transition-colors">Cards Catalog</a>
+                <a href="#events" class="hover:text-brand-cyan transition-colors">Admin Events</a>
+                <a href="#commands" class="hover:text-brand-cyan transition-colors">Commands</a>
             </nav>
-            <a href="https://t.me/msgcpowerstore_bot" target="_blank" class="hidden md:block bg-cyan-500 hover:bg-cyan-400 text-white font-bold py-2 px-4 rounded-lg transition-all shadow-lg shadow-cyan-500/30">Add to Telegram</a>
+            <a href="https://t.me/msgcpowerstore_bot" target="_blank" class="gradient-btn text-black font-bold text-sm px-5 py-2.5 rounded-lg flex items-center space-x-2">
+                <i class="fab font-bold fa-telegram text-lg"></i>
+                <span>Launch Bot</span>
+            </a>
         </div>
     </header>
 
     <!-- Hero Section -->
-    <main class="container mx-auto px-6 py-16 md:py-24 text-center">
-        <h2 class="text-5xl md:text-7xl font-black uppercase neon-text-pink tracking-wider">COMMAND THE CURRENT</h2>
-        <p class="text-lg md:text-xl mt-4 max-w-3xl mx-auto text-gray-300">Harness raw energy in a Telegram game of strategy, shifting alliances, and calculated betrayal. Amass Power Coins, wield reality-bending cards, and short-circuit the competition to seize control of the leaderboard.</p>
-        <div class="mt-8">
-            <a href="https://t.me/msgcpowerstore_bot" target="_blank" class="neon-button font-bold text-lg py-3 px-8 rounded-lg inline-block">
-                ⚡️ Play Now ⚡️
-            </a>
+    <section class="relative overflow-hidden py-24 md:py-32">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,240,255,0.1)_0,transparent_70%)]"></div>
+        <div class="max-w-5xl mx-auto px-6 text-center relative z-10">
+            <span class="px-4 py-1.5 rounded-full text-xs font-orbitron font-semibold tracking-widest gradient-badge text-white uppercase shadow-lg inline-block mb-6">
+                Next-Gen Telegram Card Strategy Engine
+            </span>
+            <h1 class="font-orbitron font-black text-5xl md:text-7xl tracking-tight text-white uppercase leading-tight neon-glow-pink mb-6">
+                Command The Current.<br><span class="text-brand-cyan neon-glow-cyan">Rule The Store.</span>
+            </h1>
+            <p class="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto mb-10 leading-relaxed font-light">
+                Harness raw energy in Telegram group chats. Amass <strong class="text-brand-cyan font-semibold">Power Coins (PC)</strong>, wield reality-altering cards, counter rival attacks, and dominate live admin events.
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+                <a href="https://t.me/msgcpowerstore_bot" target="_blank" class="gradient-btn text-black font-extrabold text-base px-8 py-4 rounded-xl shadow-xl w-full sm:w-auto flex items-center justify-center space-x-3">
+                    <i class="fas fa-play text-lg"></i>
+                    <span>Play On Telegram Now</span>
+                </a>
+                <a href="#cards" class="bg-brand-card hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-base px-8 py-4 rounded-xl transition-all w-full sm:w-auto">
+                    Explore Cards Catalog
+                </a>
+            </div>
         </div>
-    </main>
+    </section>
 
-    <!-- About Section -->
-    <section id="about" class="py-20 bg-gray-900/60">
-        <div class="container mx-auto px-6">
-            <h3 class="text-4xl font-bold text-center mb-12 neon-text">HARNESS THE POWER</h3>
-            <div class="grid md:grid-cols-3 gap-8 text-center">
-                <div class="bg-gray-800 p-6 rounded-xl neon-box border-opacity-50">
-                    <div class="text-5xl mb-4">💰</div>
-                    <h4 class="text-2xl font-bold mb-2 text-cyan-300">AMASS ENERGY</h4>
-                    <p>Energy manifests as Power Coins. Generate them through simple group activity, tap into supercharged global events, and claim your daily energy surge.</p>
+    <!-- Key Highlights Grid -->
+    <section id="about" class="py-16 bg-slate-950/60 border-y border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-brand-card p-8 rounded-2xl border border-slate-800">
+                    <div class="w-14 h-14 rounded-xl bg-cyan-950/50 border border-brand-cyan/30 flex items-center justify-center text-3xl mb-6 text-brand-cyan">💰</div>
+                    <h3 class="font-orbitron font-bold text-xl text-white mb-3">Dynamic Economy</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">Earn Power Coins through chat activity, random coin drops, admin awards, and clever card investments.</p>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-xl neon-box border-opacity-50">
-                    <div class="text-5xl mb-4">🎴</div>
-                    <h4 class="text-2xl font-bold mb-2 text-cyan-300">WIELD THE ARCANA</h4>
-                    <p>Convert your coins into tangible power. Access the private /store to acquire an arsenal of game-altering cards, each a conduit for offensive or defensive maneuvers.</p>
+                <div class="bg-brand-card p-8 rounded-2xl border border-slate-800">
+                    <div class="w-14 h-14 rounded-xl bg-pink-950/50 border border-brand-pink/30 flex items-center justify-center text-3xl mb-6 text-brand-pink">🎴</div>
+                    <h3 class="font-orbitron font-bold text-xl text-white mb-3">16 Power Cards</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">Deploy 3 tiers of cards ranging from shields, traps, and stealth disguises to coin steals and divine smites.</p>
                 </div>
-                <div class="bg-gray-800 p-6 rounded-xl neon-box border-opacity-50">
-                    <div class="text-5xl mb-4">🏆</div>
-                    <h4 class="text-2xl font-bold mb-2 text-cyan-300">ASCEND TO DOMINANCE</h4>
-                    <p>Deploy your cards with tactical precision. Shield your assets, overload your rivals, and siphon their energy. Ascend the /leaderboard and etch your name in the annals of power.</p>
+                <div class="bg-brand-card p-8 rounded-2xl border border-slate-800">
+                    <div class="w-14 h-14 rounded-xl bg-purple-950/50 border border-brand-purple/30 flex items-center justify-center text-3xl mb-6 text-purple-400">🎉</div>
+                    <h3 class="font-orbitron font-bold text-xl text-white mb-3">Live Admin Events</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">7 automated global events including Secret Santa gift swaps, Rush Hour 0s cooldowns, and Coin Rush drops.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Cards Section -->
-    <section id="cards" class="py-20">
-        <div class="container mx-auto px-6">
-            <h3 class="text-4xl font-bold text-center mb-12 neon-text-pink">THE ARSENAL OF POWER</h3>
-            <div id="cards-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <!-- Cards will be dynamically inserted here by JavaScript -->
+    <!-- Power Cards Catalog Section -->
+    <section id="cards" class="py-24">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
+                <div>
+                    <h2 class="font-orbitron font-black text-4xl text-white neon-glow-pink mb-3">POWER CARDS ARSENAL</h2>
+                    <p class="text-slate-400 text-sm max-w-xl">Filter by card tier or search by keyword to explore all card abilities and costs.</p>
+                </div>
+                <!-- Filter Tabs & Search -->
+                <div class="mt-6 md:mt-0 flex flex-wrap gap-3 items-center">
+                    <input type="text" id="card-search" placeholder="Search cards..." class="bg-slate-900 border border-slate-700 text-sm text-slate-200 px-4 py-2 rounded-lg focus:outline-none focus:border-brand-cyan transition-colors w-48">
+                    <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs font-semibold">
+                        <button onclick="filterCards('all')" id="btn-all" class="px-3 py-1.5 rounded-md bg-brand-cyan text-black font-bold transition-all">All</button>
+                        <button onclick="filterCards('1')" id="btn-1" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all">Tier 1</button>
+                        <button onclick="filterCards('2')" id="btn-2" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all">Tier 2</button>
+                        <button onclick="filterCards('3')" id="btn-3" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all">Tier 3</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cards Grid -->
+            <div id="cards-container" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Dynamically Rendered Cards -->
             </div>
         </div>
     </section>
-    
-    <!-- Commands Section -->
-    <section id="commands" class="py-20 bg-gray-900/60">
-        <div class="container mx-auto px-6">
-            <h3 class="text-4xl font-bold text-center mb-12 neon-text">YOUR COMMAND CONSOLE</h3>
-            <div class="max-w-4xl mx-auto bg-gray-800 rounded-xl neon-box p-6 md:p-8">
-                <ul class="space-y-4">
-                    <li><code class="bg-gray-900 text-cyan-300 p-1 rounded">/start</code> - Join the game and get your starter coins.</li>
-                    <li><code class="bg-gray-900 text-cyan-300 p-1 rounded">/profile</code> - Check your coins, cards, and status (in private chat).</li>
-                    <li><code class="bg-gray-900 text-cyan-300 p-1 rounded">/store</code> - Browse and buy power cards (in private chat).</li>
-                    <li><code class="bg-gray-900 text-cyan-300 p-1 rounded">/use &lt;CardName&gt;</code> - Use a card from your hand. Reply to a user to target them.</li>
-                    <li><code class="bg-gray-900 text-cyan-300 p-1 rounded">/leaderboard</code> - View the global coin leaderboard (in a group).</li>
-                    <li><code class="bg-gray-900 text-cyan-300 p-1 rounded">/help</code> - Shows the help message with all commands.</li>
-                </ul>
+
+    <!-- Admin Events Section -->
+    <section id="events" class="py-24 bg-slate-950/70 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="font-orbitron font-black text-4xl text-white neon-glow-cyan mb-4">LIVE ADMIN EVENTS</h2>
+                <p class="text-slate-400 text-sm leading-relaxed">Admins can trigger 7 automated global events that modify store rules, disable card cooldowns, or trigger free card and coin giveaways with direct DM alerts.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-brand-card p-6 rounded-2xl border border-slate-800 hover:border-brand-cyan/50 transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-3xl">🎁</span>
+                        <span class="text-xs font-orbitron font-bold px-3 py-1 bg-cyan-950 text-brand-cyan rounded-full border border-brand-cyan/30">15 MINS</span>
+                    </div>
+                    <h3 class="font-orbitron font-bold text-lg text-white mb-2">BOGO Sale</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Every store purchase grants a FREE Tier 1 or Tier 2 card automatically added to your inventory.</p>
+                </div>
+
+                <div class="bg-brand-card p-6 rounded-2xl border border-slate-800 hover:border-brand-pink/50 transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-3xl">🎅</span>
+                        <span class="text-xs font-orbitron font-bold px-3 py-1 bg-pink-950 text-brand-pink rounded-full border border-brand-pink/30">INSTANT</span>
+                    </div>
+                    <h3 class="font-orbitron font-bold text-lg text-white mb-2">Secret Santa</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Players are automatically shuffled to exchange cards or coins with each other, accompanied by private DM alerts.</p>
+                </div>
+
+                <div class="bg-brand-card p-6 rounded-2xl border border-slate-800 hover:border-purple-500/50 transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-3xl">⏰</span>
+                        <span class="text-xs font-orbitron font-bold px-3 py-1 bg-purple-950 text-purple-400 rounded-full border border-purple-500/30">1 HOUR</span>
+                    </div>
+                    <h3 class="font-orbitron font-bold text-lg text-white mb-2">Rush Hour</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Card usage cooldown timers are reduced to 0 seconds! Use your cards without waiting.</p>
+                </div>
+
+                <div class="bg-brand-card p-6 rounded-2xl border border-slate-800 hover:border-emerald-500/50 transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-3xl">🤝</span>
+                        <span class="text-xs font-orbitron font-bold px-3 py-1 bg-emerald-950 text-emerald-400 rounded-full border border-emerald-500/30">15 MINS</span>
+                    </div>
+                    <h3 class="font-orbitron font-bold text-lg text-white mb-2">Truce</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">All negative and attacking cards are disabled across the bot, enforcing temporary peace.</p>
+                </div>
+
+                <div class="bg-brand-card p-6 rounded-2xl border border-slate-800 hover:border-amber-500/50 transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-3xl">🎲</span>
+                        <span class="text-xs font-orbitron font-bold px-3 py-1 bg-amber-950 text-amber-400 rounded-full border border-amber-500/30">INSTANT</span>
+                    </div>
+                    <h3 class="font-orbitron font-bold text-lg text-white mb-2">Gambit</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Every registered player receives 1 random non-God card directly into their inventory.</p>
+                </div>
+
+                <div class="bg-brand-card p-6 rounded-2xl border border-slate-800 hover:border-cyan-500/50 transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-3xl">💰</span>
+                        <span class="text-xs font-orbitron font-bold px-3 py-1 bg-cyan-950 text-brand-cyan rounded-full border border-brand-cyan/30">10 MINS</span>
+                    </div>
+                    <h3 class="font-orbitron font-bold text-lg text-white mb-2">Coin Rush</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">Group chat activity triggers random bonus coin drops (2-5 PC) directly into player balances.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Commands Directory Section -->
+    <section id="commands" class="py-24">
+        <div class="max-w-6xl mx-auto px-6">
+            <h2 class="font-orbitron font-black text-4xl text-center text-white neon-glow-pink mb-16">COMMAND CONSOLE</h2>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Player Commands -->
+                <div class="bg-brand-card p-8 rounded-2xl border border-slate-800">
+                    <h3 class="font-orbitron font-bold text-xl text-brand-cyan mb-6 flex items-center space-x-3">
+                        <i class="fas fa-user-astronaut"></i>
+                        <span>Player Commands</span>
+                    </h3>
+                    <div class="space-y-4 font-mono text-xs">
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-cyan font-bold">/start</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">Register player profile and view introduction.</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-cyan font-bold">/profile</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">View coins, cards, active status & God card uses counter.</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-cyan font-bold">/store</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">Open interactive Power Card Store (Private DM only).</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-cyan font-bold">/use &lt;CardName&gt; [@target]</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">Activate a card from your inventory on yourself or target player.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Commands -->
+                <div class="bg-brand-card p-8 rounded-2xl border border-slate-800">
+                    <h3 class="font-orbitron font-bold text-xl text-brand-pink mb-6 flex items-center space-x-3">
+                        <i class="fas fa-crown"></i>
+                        <span>Admin Management Commands</span>
+                    </h3>
+                    <div class="space-y-4 font-mono text-xs">
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-pink font-bold">/startevent &lt;event_name&gt;</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">Triggers any of the 7 global events.</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-pink font-bold">/disablecard &lt;CardName&gt;</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">Disables a card from store purchase and usage live.</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-pink font-bold">/enablecard &lt;CardName&gt;</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">Re-enables a previously disabled card.</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                            <span class="text-brand-pink font-bold">/award &lt;amount&gt; @username</span>
+                            <p class="text-slate-400 text-xs font-sans mt-1">Award or deduct (negative number) coins from a player.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="text-center py-8">
-        <p>&copy; 2024 Power Store Bot. Control the flow.</p>
+    <footer class="py-12 border-t border-slate-800/80 bg-slate-950 text-center text-slate-500 text-xs">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p>&copy; 2026 Power Store Bot. Engineered for Telegram Gaming Communities.</p>
+            <div class="flex space-x-6 text-slate-400">
+                <a href="https://github.com/Avenger11764/powerstore" target="_blank" class="hover:text-brand-cyan transition-colors">GitHub Repository</a>
+                <a href="https://t.me/msgcpowerstore_bot" target="_blank" class="hover:text-brand-cyan transition-colors">Telegram Bot</a>
+            </div>
+        </div>
     </footer>
 
+    <!-- JavaScript for Cards rendering and filtering -->
     <script>
-        // Power cards data extracted from your Python script
-        const POWER_CARDS = {
-            'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 10 hours.', 'price': 20, 'icon': '⚡️'},
-            'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory and coin balance of a target player.', 'price': 20, 'icon': '👁️'},
-            'angel': {'name': 'Angel', 'description': 'Grant 20 Power Coins to another player at no cost to you.', 'price': 20, 'icon': '👼'},
-            'blackout': {'name': 'Blackout', 'description': 'For 12 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️'},
-            'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 50% of its total coin value.', 'price': 15, 'icon': '♻️'},
-            'black_market': {'name': 'Black Market', 'description': 'For 2 minutes, all items in the store are 50% off for you.', 'price': 60, 'icon': '💰'},
-            'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️'},
-            'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 25, 'icon': '🔥'},
-            'glitch': {'name': 'Glitch', 'description': 'Force a target player to randomly discard one of their cards.', 'price': 35, 'icon': '🌀'},
-            'shackle': {'name': 'Shackle', 'description': 'For 7 hours, your target is unable to use any cards.', 'price': 45, 'icon': '⛓️'},
-            'spotlight': {'name': 'Spotlight', 'description': 'Publicly reveal a target player\'s entire card inventory and coin balance to the group.', 'price': 25, 'icon': '💡'},
-            'time_warp': {'name': 'Time Warp', 'description': 'Immediately end an active Karma or Shackle effect on a target player.', 'price': 35, 'icon': '⏳'},
-            'mirage': {'name': 'Mirage', 'description': 'For 12 hours, Vision/Spotlight used on you will show a fake hand.', 'price': 30, 'icon': '🏜️'},
-            'dispel': {'name': 'Dispel', 'description': 'Immediately removes Shackle and personal Inflation effects from yourself.', 'price': 40, 'icon': '💨'},
-            'double_or_nothing': {'name': 'Double or Nothing', 'description': 'Target a player. You both secretly wager 40 coins. A coin is flipped; the winner takes the entire pot (80 coins).', 'price': 30, 'icon': '🎲'},
-            'forcefield': {'name': 'Forcefield', 'description': 'Block the next negative card used on you.', 'price': 45, 'icon': '🛡️'},
-            'trap': {'name': 'Trap', 'description': 'Set a trap. The next player to target you with a negative card has it nullified and loses 15 coins.', 'price': 55, 'icon': '🪤'},
-            'ricochet': {'name': 'Ricochet', 'description': 'For 10 hours, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 50, 'icon': '↪️'},
-            'clairvoyance': { 'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. This card allows the user to bypass disguise effects and view the actual cards of the target in the bot\'s DM. Users under Blackout will remain unaffected.', 'price': 40, 'icon': '🔮'},
-            'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 50, 'icon': '😈'},
-            'karma': {'name': 'Karma', 'description': 'For 15 hours, any negative card used on you is reflected back to the sender.', 'price': 70, 'icon': '⚖️'},
-            'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄'},
-            'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 45, 'icon': '🥷'},
-            'inflation': {'name': 'Inflation', 'description': 'For 12 hours, all card prices in the store are doubled for everyone but you.', 'price': 75, 'icon': '📈'},
-            'purge': {'name': 'Purge', 'description': 'Name a card. If your target has it, they are forced to discard it.', 'price': 60, 'icon': '🎯'},
-            'vortex': {'name': 'Vortex', 'description': 'All players in the game (including you) must immediately discard one random card.', 'price': 30, 'icon': '🌪️'},
-            'amnesia': {'name': 'Amnesia', 'description': 'Force a target player to discard their entire hand of cards.', 'price': 75, 'icon': '❓'},
-            'frenzy': {'name': 'Frenzy', 'description': 'Use your next two cards without a cooldown period.', 'price': 40, 'icon': '🔀'},
-            'god': {'name': 'God', 'description': 'Choose one of three powers: Blessing (give a Forcefield to yourself or a target), Smite (target loses half their coins), or Tribute (all other players pay you 5 coins).', 'price': 100, 'icon': '🛐'},
-        };
+        const CARDS_DATA = [
+            { id: 'forcefield', name: 'Forcefield', icon: '🛡️', tier: 1, price: 10, type: 'Defense', desc: 'Protects you from the next negative card attack targeting you.' },
+            { id: 'trap', name: 'Trap', icon: '🪤', tier: 1, price: 10, type: 'Defense', desc: 'Counter-attacks the next player who targets you, causing them to lose 15 PC.' },
+            { id: 'karma', name: 'Karma', icon: '⚖️', tier: 1, price: 15, type: 'Passive', desc: 'Lasts 30 mins. Anyone who attacks you suffers 50% of the damage back.' },
+            { id: 'angel', name: 'Angel', icon: '👼', tier: 1, price: 20, type: 'Support', desc: 'Transfer up to 20 PC to another player safely without tax.' },
+            { id: 'double_or_nothing', name: 'Double or Nothing', icon: '🎲', tier: 2, price: 40, type: 'Gamble', desc: 'Requires ≥ 40 PC balance. 50% chance to double your wager or lose it all!' },
+            { id: 'mirage', name: 'Mirage', icon: '🏜️', tier: 2, price: 30, type: 'Illusion', desc: 'Lasts 15 mins. Creates 3 fake cards in your inventory to confuse stealers.' },
+            { id: 'speed', name: 'Speed', icon: '⚡', tier: 2, price: 35, type: 'Buff', desc: 'Lasts 20 mins. Reduces your card usage cooldowns by 50%.' },
+            { id: 'blackout', name: 'Blackout', icon: '🕶️', tier: 2, price: 35, type: 'Utility', desc: 'Hides your coin balance and active cards from /profile lookups for 1 hour.' },
+            { id: 'black_market', name: 'Black Market', icon: '💰', tier: 2, price: 50, type: 'Economy', desc: 'Grants 50% discount on all store card purchases for 15 minutes.' },
+            { id: 'shackles', name: 'Shackles', icon: '⛓️', tier: 2, price: 50, type: 'Debuff', desc: 'Shackles a target player for 15 mins, preventing them from using cards.' },
+            { id: 'frenzy', name: 'Frenzy', icon: '🔀', tier: 2, price: 60, type: 'Buff', desc: 'Grants 3 consecutive instant card uses with 0s cooldown.' },
+            { id: 'ricochet', name: 'Ricochet', icon: '↪️', tier: 2, price: 60, type: 'Defense', desc: 'Lasts 20 mins. Reflects 100% of negative card attacks back onto the attacker.' },
+            { id: 'dispel', name: 'Dispel', icon: '🪄', tier: 2, price: 40, type: 'Utility', desc: 'Cleanses all active negative status debuffs from yourself or target ally.' },
+            { id: 'devil', name: 'Devil', icon: '😈', tier: 3, price: 100, type: 'Offensive', desc: 'Steals 30% of a target player\'s total Power Coins.' },
+            { id: 'inflation', name: 'Inflation', icon: '📈', tier: 3, price: 150, type: 'Economy', desc: 'Doubles /store card prices for all other players for 30 minutes.' },
+            { id: 'god', name: 'God', icon: '👑', tier: 3, price: 250, type: 'Ultimate', desc: 'Unleashes Blessing, Smite (Max 2/24h), or Tribute (Max 1/24h with player DM alerts). Max 2 uses/day.' }
+        ];
 
-        // Function to generate the card grid
-        function createCardGrid() {
-            const grid = document.getElementById('cards-grid');
-            if (!grid) return;
+        let activeTier = 'all';
 
-            for (const cardId in POWER_CARDS) {
-                const card = POWER_CARDS[cardId];
-                const cardElement = document.createElement('div');
-                cardElement.className = 'bg-gray-800 p-6 rounded-xl neon-box border-opacity-50 flex flex-col';
-                
-                cardElement.innerHTML = `
-                    <div class="flex-grow">
-                        <div class="flex justify-between items-start">
+        function renderCards() {
+            const container = document.getElementById('cards-container');
+            const searchVal = document.getElementById('card-search').value.toLowerCase();
+            container.innerHTML = '';
+
+            const filtered = CARDS_DATA.filter(card => {
+                const matchesTier = activeTier === 'all' || card.tier.toString() === activeTier;
+                const matchesSearch = card.name.toLowerCase().includes(searchVal) || card.desc.toLowerCase().includes(searchVal);
+                return matchesTier && matchesSearch;
+            });
+
+            filtered.forEach(card => {
+                const tierColor = card.tier === 1 ? 'text-emerald-400 border-emerald-500/30' : card.tier === 2 ? 'text-cyan-400 border-cyan-500/30' : 'text-pink-400 border-pink-500/30';
+                const cardEl = document.createElement('div');
+                cardEl.className = 'bg-brand-card p-6 rounded-2xl neon-border-cyan flex flex-col justify-between';
+                cardEl.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start mb-4">
                             <span class="text-4xl">${card.icon}</span>
-                            <span class="font-bold text-lg text-cyan-300">${card.price} PC</span>
+                            <span class="text-xs font-orbitron font-bold px-2.5 py-1 rounded-full border ${tierColor} bg-slate-900">
+                                Tier ${card.tier}
+                            </span>
                         </div>
-                        <h4 class="text-2xl font-bold mt-4 mb-2 text-white">${card.name}</h4>
-                        <p class="text-gray-400 text-sm">${card.description}</p>
+                        <h4 class="font-orbitron font-bold text-xl text-white mb-2">${card.name}</h4>
+                        <p class="text-slate-400 text-xs leading-relaxed mb-4">${card.desc}</p>
+                    </div>
+                    <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 mt-2">
+                        <span class="text-xs text-slate-500 font-semibold">${card.type}</span>
+                        <span class="font-orbitron font-bold text-sm text-brand-cyan">${card.price} PC</span>
                     </div>
                 `;
-                
-                grid.appendChild(cardElement);
-            }
+                container.appendChild(cardEl);
+            });
         }
 
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
+        function filterCards(tier) {
+            activeTier = tier;
+            ['all', '1', '2', '3'].forEach(t => {
+                const btn = document.getElementById(`btn-${t}`);
+                if (t === tier) {
+                    btn.className = 'px-3 py-1.5 rounded-md bg-brand-cyan text-black font-bold transition-all';
+                } else {
+                    btn.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-all';
+                }
             });
-        });
+            renderCards();
+        }
 
-        // Initialize the page
-        document.addEventListener('DOMContentLoaded', createCardGrid);
+        document.getElementById('card-search').addEventListener('input', renderCards);
+        document.addEventListener('DOMContentLoaded', renderCards);
     </script>
-
 </body>
 </html>
-
-
-
