@@ -546,19 +546,39 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await safe_reply(update, "You are already registered! Use /profile to see your status.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Displays the help message."""
-    await safe_reply(update, 
-        "--- Power Store Bot Help ---\n\n"
-        "/start - Join the game.\n"
-        "/profile - Check your coins and cards (private chat only).\n"
-        "/store - Browse and buy power cards (private chat only).\n"
-        "/use <CardName> [Args] - Use a power card in the group chat. (Reply to a user's message to target them).\n\n"
-        "--- Admin Commands ---\n"
-        "/award <amount> @username - Give coins to a player.\n"
-        "/awardall <amount> - Give coins to all players.\n"
-        "/givecard <CardName> @username - Give a card to a player.\n"
-        "/allplayers - View a summary of all players."
+    """Displays the updated help message."""
+    user = update.effective_user
+    user_is_admin = is_admin(user.id) if user else False
+
+    text = (
+        "⚡ *POWER STORE BOT HELP* 🎮\n\n"
+        "👤 *PLAYER COMMANDS:*\n"
+        "• /start — Register and receive starter coins\n"
+        "• /profile — Check coins, cards, status & daily God card limit (DM only)\n"
+        "• /store — Open interactive card store (DM only)\n"
+        "• /use <CardName> [@target] — Activate a card power\n"
+        "• /help — Display this help menu\n"
     )
+
+    if user_is_admin:
+        text += (
+            "\n👑 *ADMIN MANAGEMENT COMMANDS:*\n"
+            "• /startevent <name> — Launch event (bogo, secretsanta, rushhour, truce, gambit, coinrush, freebiefrenzy)\n"
+            "• /endevent [name] — Stop active events (or specific event)\n"
+            "• /revertevent <name> — Revert event effects (/revertgambit, /revertsecretsanta)\n"
+            "• /players — View all players report with coins, cards & live status\n"
+            "• /disablecard <card> — Disable a card from store & usage\n"
+            "• /enablecard <card> — Re-enable a disabled card\n"
+            "• /disabledcards — View currently disabled cards\n"
+            "• /eliminate <@user> — Mark a player as ELIMINATED\n"
+            "• /uneliminate <@user> — Restore an eliminated player to ACTIVE\n"
+            "• /award <amount> <@user> — Award or deduct coins\n"
+            "• /awardall <amount> — Award or deduct coins across all players\n"
+            "• /givecard <CardName> <@user> — Gift a card directly to a player\n"
+            "• /resetallcoins — Reset all players to 5 PC and clear hands\n"
+        )
+
+    await safe_reply(update, text)
 
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Displays the player's profile. Can only be used in private chat."""
