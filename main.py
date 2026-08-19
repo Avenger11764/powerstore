@@ -72,7 +72,7 @@ POWER_CARDS = {
     # Tier 1: Utility & Minor Effects
     'speed': {'name': 'Speed', 'description': 'Reduces the cooldown time on your card usage by half for the next 1 hour.', 'price': 20, 'icon': '⚡️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZWZlbjB5YXZibzdnZmF4MG05Mm02dDc0ejZwcnJ2eHU5YTQwcWpweCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3ornjIhZGFWpbcGMAU/giphy.gif'},
     'vision': {'name': 'Vision', 'description': 'Secretly view the card inventory of a target player.', 'price': 20, 'icon': '👁️', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExY2JkamxzaTNwMXo4ZXJreHl5a3M5dnFxMGowNTdsbm9sbmRpbnhhOSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bufkPz3LRof205G/giphy.gif'},
-    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player (Max 2 times per target player in 24 hours).', 'price': 20, 'icon': '👼', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
+    'angel': {'name': 'Angel', 'description': 'Gift 20 of your own Power Coins to another player (Max 2 times in 24 hours).', 'price': 20, 'icon': '👼', 'tier': 1, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeHRmbDlncDAxeHN4eGFqem5weWkxMXV4eDB1bjY3ajZ1NGFzeHBtNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/bGkOcTT6NjuRQQEAAj/giphy.gif'},
     'blackout': {'name': 'Blackout', 'description': 'For 3 hours, you are immune to Vision and Spotlight cards.', 'price': 25, 'icon': '🕶️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWFwbWJkYmZsN3Bmbm03aTM1NXh4NWQ3Njd4aDM5bDJyczZlODA5ZCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Kfg01zJWGDMT6/giphy.gif'},
     'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTdyZng0bzloNnlvajdzdDIxc2VjMjl2OTN4MW9wdzlmbHZ0amd2ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Loe03BsYRrv13l8h9q/giphy.gif'},
     'black_market': {'name': 'Black Market', 'description': 'For 1 minute, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJsaXhoOTRsc2V6dHU0YnFyNTl6dHR6d2FoZnM1NXZoMjU2YnU5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l3vRl0hL5yTjuOFji/giphy.gif'},
@@ -395,7 +395,7 @@ def ensure_player_registered(user_id: int, telegram_user=None) -> dict:
             'in_game_name': first_name or username,
             'coins': 5,
             'cards': [],
-            'msgc_registered': False,
+            'msgc_registered': True,
             'status': {
                 'protected': False,
                 'karma_active_until': 0,
@@ -512,7 +512,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             'in_game_name': user.first_name or user.username or f"Player_{user.id}",
             'coins': 5,
             'cards': [],
-            'msgc_registered': False,
+            'msgc_registered': True,
             'status': {
                 'protected': False,
                 'karma_active_until': 0,
@@ -689,6 +689,11 @@ def build_store_menu(user_id, telegram_user=None):
         c_price = card['price']
         if freebie_frenzy_active and card.get('tier') == 1 and card_id != 'angel':
             c_price = 0
+        elif black_market_active:
+            c_price = int(c_price * 0.5)
+        elif is_affected_by_inflation:
+            c_price = int(c_price * 2)
+
         if card_id in disabled_cards:
             button_text = f"{card['icon']} {card['name']} (DISABLED)"
         else:
@@ -1149,21 +1154,25 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         if user_data.get('coins', 0) < 20:
             raise Exception("You need at least 20 coins to use the Angel card.")
 
-        # 24-Hour Per-Target Limit Check for Angel Card
+        # 24-Hour Limit Check for Angel Card (Max 2 times per player in 24 hours)
         now_time = time.time()
         angel_history = user_status.get('angel_uses_24h', [])
-        recent_angel_uses = [entry for entry in angel_history if isinstance(entry, dict) and (now_time - entry.get('timestamp', 0)) < 86400]
+        recent_angel_uses = [
+            entry if isinstance(entry, (int, float)) else entry.get('timestamp', 0)
+            for entry in angel_history
+            if (isinstance(entry, (int, float)) and (now_time - entry) < 86400) or
+               (isinstance(entry, dict) and (now_time - entry.get('timestamp', 0)) < 86400)
+        ]
         
-        target_uses_count = sum(1 for entry in recent_angel_uses if str(entry.get('target_id')) == str(target_id))
-        if target_uses_count >= 2:
-            raise Exception(f"👼 You can only use the Angel card on {target_name} at most 2 times in 24 hours! (Already used {target_uses_count}/2)")
+        if len(recent_angel_uses) >= 2:
+            raise Exception(f"👼 You can only use the Angel card 2 times in a 24-hour period! (Already used {len(recent_angel_uses)}/2 in last 24h)")
 
-        recent_angel_uses.append({'target_id': str(target_id), 'timestamp': now_time})
+        recent_angel_uses.append(now_time)
         user_status['angel_uses_24h'] = recent_angel_uses
 
         user_data['coins'] -= 20
         update_player_data(target_id, {'coins': target_data.get('coins', 0) + 20})
-        effect_message = f"👼 {user_name} used an Angel card to gift 20 Power Coins to {target_name}! ({target_uses_count + 1}/2 Angel uses on {target_name} in 24h)"
+        effect_message = f"👼 {user_name} used an Angel card to gift 20 Power Coins to {target_name}! ({len(recent_angel_uses)}/2 Angel uses in 24h)"
     elif card_id == 'devil':
         stolen = min(25, target_data.get('coins', 0))
         update_player_data(target_id, {'coins': target_data.get('coins', 0) - stolen})
@@ -2317,10 +2326,10 @@ async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.
         except Exception as e:
             logger.error(f"Failed to send event broadcast to chat {chat_id}: {e}")
 
-    # 2. Send DM notification to all MSGC registered players
+    # 2. Send DM notification to all active registered players
     all_players = get_all_players()
     for p in all_players:
-        if bool(p.get('msgc_registered', False)) and p.get('user_id'):
+        if not is_player_eliminated(p) and p.get('user_id') and str(p.get('user_id')) != '0':
             try:
                 if gif_url:
                     try:
@@ -2333,17 +2342,19 @@ async def broadcast_event_message(bot: Bot, message: str, context: ContextTypes.
                 logger.warning(f"Could not send event DM to player {p['user_id']}: {e}")
 
 async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
-    """Executes Secret Santa card/coin gift exchange across all active MSGC registered players with direct DM notifications."""
+    """Executes Secret Santa card/coin gift exchange across all active registered players with direct DM notifications."""
     all_players = get_all_players()
-    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False)) and not is_player_eliminated(p)]
+    eligible_players = [p for p in all_players if not is_player_eliminated(p) and p.get('user_id') and str(p.get('user_id')) != '0']
+    msgc_flagged = [p for p in eligible_players if bool(p.get('msgc_registered', False))]
+    target_players = msgc_flagged if len(msgc_flagged) >= 2 else eligible_players
 
-    if len(msgc_players) < 2:
-        logger.info("Secret Santa cancelled: Less than 2 MSGC registered players.")
-        await broadcast_event_message(bot, "🎅 *Secret Santa Cancelled:* At least 2 MSGC registered players are required.", context)
+    if len(target_players) < 2:
+        logger.info("Secret Santa cancelled: Less than 2 active registered players.")
+        await broadcast_event_message(bot, "🎅 *Secret Santa Cancelled:* At least 2 active registered players are required.", context)
         return
 
-    player_ids = [p.get('user_id') for p in msgc_players if p.get('user_id')]
-    player_map = {p.get('user_id'): p for p in msgc_players if p.get('user_id')}
+    player_ids = [p.get('user_id') for p in target_players if p.get('user_id')]
+    player_map = {p.get('user_id'): p for p in target_players if p.get('user_id')}
 
     if len(player_ids) < 2:
         return
@@ -2357,7 +2368,7 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
             swap_idx = (i + 1) % len(player_ids)
             receivers[i], receivers[swap_idx] = receivers[swap_idx], receivers[i]
 
-    summary_messages = ["🎁 *Secret Santa Event!* 🎁\n\nGifts have been exchanged between MSGC registered players:"]
+    summary_messages = ["🎁 *Secret Santa Event!* 🎁\n\nGifts have been exchanged between players:"]
     eligible_santa_cards = [cid for cid, c in POWER_CARDS.items() if c.get('tier') in [1, 2]]
     swaps_record = []
 
@@ -2371,17 +2382,35 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
         
         sender_cards = list(sender_data.get('cards', []))
         receiver_cards = list(receiver_data.get('cards', []))
-        eligible_cards = [card for card in sender_cards if card in eligible_santa_cards]
+        sender_status = parse_json_dict(sender_data.get('status', {}))
+        receiver_status = parse_json_dict(receiver_data.get('status', {}))
+
+        # Only gift cards that the receiver does not already possess
+        sendable_cards = [card for card in sender_cards if card in eligible_santa_cards and card not in receiver_cards]
 
         try:
-            if eligible_cards:
-                card_to_send = random.choice(eligible_cards)
+            if sendable_cards:
+                card_to_send = random.choice(sendable_cards)
                 sender_cards.remove(card_to_send)
-                if card_to_send not in receiver_cards:
-                    receiver_cards.append(card_to_send)
+                receiver_cards.append(card_to_send)
 
-                update_player_data(sender_id, {'cards': sender_cards})
-                update_player_data(receiver_id, {'cards': receiver_cards})
+                # Update card_costs tracking
+                receiver_card_costs = parse_json_dict(receiver_status.get('card_costs', {}))
+                receiver_card_costs[card_to_send] = 0
+                receiver_status['card_costs'] = receiver_card_costs
+
+                sender_card_costs = parse_json_dict(sender_status.get('card_costs', {}))
+                sender_card_costs.pop(card_to_send, None)
+                sender_status['card_costs'] = sender_card_costs
+
+                # Update local map state to prevent stale overwrites across the loop
+                sender_data['cards'] = sender_cards
+                sender_data['status'] = sender_status
+                receiver_data['cards'] = receiver_cards
+                receiver_data['status'] = receiver_status
+
+                update_player_data(sender_id, {'cards': sender_cards, 'status': sender_status})
+                update_player_data(receiver_id, {'cards': receiver_cards, 'status': receiver_status})
                 swaps_record.append({'sender_id': sender_id, 'receiver_id': receiver_id, 'type': 'card', 'val': card_to_send})
 
                 card_name = POWER_CARDS.get(card_to_send, {}).get('name', card_to_send)
@@ -2410,8 +2439,14 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
                 coins_to_send = min(50, sender_coins)
                 if coins_to_send > 0:
                     receiver_coins = receiver_data.get('coins', 0)
-                    update_player_data(sender_id, {'coins': sender_coins - coins_to_send})
-                    update_player_data(receiver_id, {'coins': receiver_coins + coins_to_send})
+                    new_sender_coins = sender_coins - coins_to_send
+                    new_receiver_coins = receiver_coins + coins_to_send
+
+                    sender_data['coins'] = new_sender_coins
+                    receiver_data['coins'] = new_receiver_coins
+
+                    update_player_data(sender_id, {'coins': new_sender_coins})
+                    update_player_data(receiver_id, {'coins': new_receiver_coins})
                     swaps_record.append({'sender_id': sender_id, 'receiver_id': receiver_id, 'type': 'coins', 'val': coins_to_send})
                     summary_messages.append(f"💰 {sender_name} gifted {coins_to_send} PC to {receiver_name}!")
 
@@ -2442,48 +2477,66 @@ async def execute_secret_santa_event(bot: Bot, context: ContextTypes.DEFAULT_TYP
     await broadcast_event_message(bot, "\n".join(summary_messages), context, gif_url=EVENT_GIFS.get('secretsanta'))
 
 async def execute_gambit_event(bot: Bot, context: ContextTypes.DEFAULT_TYPE):
-    """Executes Gambit event: awards a random non-God card to every active MSGC registered player with DM notifications."""
+    """Executes Gambit event: awards a random non-God card to every active registered player with DM notifications."""
     all_players = get_all_players()
-    msgc_players = [p for p in all_players if bool(p.get('msgc_registered', False)) and not is_player_eliminated(p)]
+    eligible_players = [p for p in all_players if not is_player_eliminated(p) and p.get('user_id') and str(p.get('user_id')) != '0']
+    msgc_flagged = [p for p in eligible_players if bool(p.get('msgc_registered', False))]
+    target_players = msgc_flagged if msgc_flagged else eligible_players
 
-    if not msgc_players:
-        logger.info("Gambit cancelled: No MSGC registered players found.")
-        await broadcast_event_message(bot, "🎲 *Gambit Cancelled:* No MSGC registered players found.", context)
+    if not target_players:
+        logger.info("Gambit cancelled: No active registered players found.")
+        await broadcast_event_message(bot, "🎲 *Gambit Cancelled:* No active registered players found.", context)
         return
 
     gambit_cards = [card_id for card_id in POWER_CARDS if card_id != 'god']
-    summary_messages = ["🎲 *Gambit Event!* 🎲\n\nEvery MSGC registered player receives a random card!"]
+    summary_messages = ["🎲 *Gambit Event!* 🎲\n\nEvery registered player receives a random card!"]
     gambit_record = []
 
-    for player in msgc_players:
+    for player in target_players:
         player_id = player.get('user_id')
         if not player_id: continue
         player_name = player.get('first_name') or player.get('username') or 'Player'
-        player_cards = list(player.get('cards', []))
+        
+        # Refresh player state
+        fresh_data = get_player_data(player_id) or player
+        player_cards = list(fresh_data.get('cards', []))
+        player_status = parse_json_dict(fresh_data.get('status', {}))
 
         try:
-            random_card = random.choice(gambit_cards)
-            card_name = POWER_CARDS.get(random_card, {}).get('name', random_card)
-            if random_card not in player_cards:
+            available_cards = [cid for cid in gambit_cards if cid not in player_cards]
+            if available_cards:
+                random_card = random.choice(available_cards)
+                card_name = POWER_CARDS.get(random_card, {}).get('name', random_card)
                 player_cards.append(random_card)
 
-            player_status = parse_json_dict(player.get('status', {}))
-            card_costs = parse_json_dict(player_status.get('card_costs', {}))
-            card_costs[random_card] = 0
-            player_status['card_costs'] = card_costs
+                card_costs = parse_json_dict(player_status.get('card_costs', {}))
+                card_costs[random_card] = 0
+                player_status['card_costs'] = card_costs
 
-            update_player_data(player_id, {'cards': player_cards, 'status': player_status})
-            gambit_record.append({'user_id': player_id, 'card_id': random_card})
-            summary_messages.append(f"🎁 {player_name} received a {card_name} card!")
+                update_player_data(player_id, {'cards': player_cards, 'status': player_status})
+                gambit_record.append({'user_id': player_id, 'card_id': random_card})
+                summary_messages.append(f"🎁 {player_name} received a {card_name} card!")
 
-            # Send DM to player
-            try:
-                await bot.send_message(
-                    chat_id=player_id,
-                    text=f"🎲 *Gambit Event Award!* 🎲\n\nYou received a free *{card_name}* card from the Gambit event!"
-                )
-            except Exception as e:
-                logger.warning(f"Could not send Gambit DM to player {player_id}: {e}")
+                # Send DM to player
+                try:
+                    await bot.send_message(
+                        chat_id=player_id,
+                        text=f"🎲 *Gambit Event Award!* 🎲\n\nYou received a free *{card_name}* card from the Gambit event!"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not send Gambit DM to player {player_id}: {e}")
+            else:
+                # If player already owns all cards, award bonus coins
+                player_coins = fresh_data.get('coins', 0) + 50
+                update_player_data(player_id, {'coins': player_coins})
+                summary_messages.append(f"⭐ {player_name} already owns all cards and received 50 PC instead!")
+                try:
+                    await bot.send_message(
+                        chat_id=player_id,
+                        text="🎲 *Gambit Event Award!* 🎲\n\nYou already own all cards! You received *50 Power Coins* instead!"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not send Gambit DM to player {player_id}: {e}")
 
         except Exception as e:
             logger.error(f"Error awarding Gambit card to player {player_id}: {e}")
@@ -2507,7 +2560,7 @@ async def handle_group_message_and_coin_rush(update: Update, context: ContextTyp
         if random.random() < 0.25:
             drop = random.randint(2, 5)
             p_data = get_player_data(user.id)
-            if p_data and bool(p_data.get('msgc_registered', False)):
+            if p_data and not is_player_eliminated(p_data):
                 update_player_data(user.id, {'coins': p_data.get('coins', 0) + drop})
                 await safe_reply(update, f"💰 *Coin Rush Drop!* {user.first_name} received +{drop} Power Coins!")
 

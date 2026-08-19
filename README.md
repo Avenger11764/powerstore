@@ -24,7 +24,7 @@ Here is the exact price list, tier ranking, target type, and description of all 
 | :--- | :---: | :---: | :---: | :---: | :--- |
 | **Speed** | ⚡️ | **20 PC** | Tier 1 | Self/Global | Reduces the cooldown time on your card usage by half for the next 1 hour. |
 | **Vision** | 👁️ | **20 PC** | Tier 1 | Targeted | Secretly view the card inventory of a target player. |
-| **Angel** | 👼 | **20 PC** | Tier 1 | Targeted | Gift 20 of your own Power Coins to another player (Max 2 times per target in 24h). |
+| **Angel** | 👼 | **20 PC** | Tier 1 | Targeted | Gift 20 of your own Power Coins to another player (Max 2 times in 24h). |
 | **Blackout** | 🕶️ | **25 PC** | Tier 1 | Self/Global | For 3 hours, you are immune to Vision and Spotlight cards. |
 | **Re-roll** | ♻️ | **15 PC** | Tier 1 | Self/Global | Discard your entire hand to gain back 75% of its total coin value. |
 | **Black Market** | 💰 | **40 PC** | Tier 1 | Self/Global | For 1 minute, all items in the store are 50% off for you. |
