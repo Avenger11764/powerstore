@@ -922,7 +922,7 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     
     if status.get('frenzy_active', 0) == 0 and not rush_hour_active:
         last_use = status.get('last_card_use_time', 0)
-        cooldown = 15 * 60
+        cooldown = 5 * 60
 
         if status.get('speed_active_until', 0) > now:
             cooldown /= 2
