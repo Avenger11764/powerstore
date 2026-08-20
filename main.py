@@ -94,7 +94,7 @@ POWER_CARDS = {
     'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjI4amMyaGp5aTdzd2JrdDdocGFiaGtsc2IycDl4Y2RjdTZ3ZGxmdyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hje9Yxu2SNtNlx80oZ/giphy.gif'},
     'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3eG1iMTlsbnk5dWp5azNocWQyNmtyd3l0enY2cWIxdDUyYmpyMnV4byZlcD12MV9naWZzX3NlYXJjaCZjdD1n/n6EMXWDjT9G8Q0EMCQ/giphy.gif'},
     'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmE5bGtkOGttb2c1Z29tbm9yOW5obnp0MXRtM2x5MGsxMnNob3pvOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pw1lmX78sDOyRvMKhZ/giphy.gif'},
-    'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGQwdW5wajFuOTI5N3F6dzJlaWE3aWd2NDJzdDVnYzE5MjFja2lpcSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Th9FMIgIgu9hK/giphy.gif'},
+    'karma': {'name': 'Karma', 'description': 'For 15 minutes, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGQwdW5wajFuOTI5N3F6dzJlaWE3aWd2NDJzdDVnYzE5MjFja2lpcSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Th9FMIgIgu9hK/giphy.gif'},
     'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGVyMXk3dzNyOGRqeWsxbm9zejZ4N3QzcXF4ajQ2NXh0bjJwcHlsbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HWVx61TKUD7nGdruml/giphy.gif'},
     'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExenVqNmVweWFwdzJiOWMxNmN0YzFkZHB2dTQ3bXIzeGlzc28xdmhvayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HUtsjiqzv1M9a/giphy.gif'},
     'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGtsejkyemNsbWhseXpzaGIxOTJ6eDNheGNoYmp4YjJ1Yjg5dGQ1NiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/gKxSdzHFNUpZ8EKirE/giphy.gif'},
@@ -1205,8 +1205,8 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         user_data['coins'] = user_data.get('coins', 0) + stolen
         effect_message = f"😈 {user_name} used a Devil card and stole {stolen} Power Coins from {target_name}!"
     elif card_id == 'karma':
-        user_status['karma_active_until'] = time.time() + (2 * 60 * 60)
-        effect_message = f"⚖️ {user_name} activated a Karma card! Negative cards will be reflected for 2 hours."
+        user_status['karma_active_until'] = time.time() + (15 * 60)
+        effect_message = f"⚖️ {user_name} activated a Karma card! Negative cards will be reflected for 15 minutes."
     elif card_id == 'ricochet':
         user_status['ricochet_active_until'] = time.time() + (1 * 60 * 60)
         effect_message = f"↪️ {user_name} activated Ricochet! The next negative card will be redirected."

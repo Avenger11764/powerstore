@@ -42,7 +42,7 @@ Here is the exact price list, tier ranking, target type, and description of all 
 | **Ricochet** | ↪️ | **40 PC** | Tier 3 | Self/Global | Activate this card. For the next 1 hr, the next negative card used on you is redirected to a random other player in the game. |
 | **Clairvoyance** | 🔮 | **40 PC** | Tier 3 | Targeted | Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout. |
 | **Devil** | 😈 | **35 PC** | Tier 3 | Targeted | Steal 25 Power Coins from an opponent. |
-| **Karma** | ⚖️ | **45 PC** | Tier 3 | Self/Global | For 2 hours, any negative card used on you is reflected back to the sender. |
+| **Karma** | ⚖️ | **45 PC** | Tier 3 | Self/Global | For 15 minutes, any negative card used on you is reflected back to the sender. |
 | **Swap** | 🔄 | **35 PC** | Tier 3 | Targeted | Swap a random card from your hand with a random card from a target's hand. |
 | **Steal** | 🥷 | **40 PC** | Tier 3 | Targeted | Steals a random card from the target user. |
 | **Inflation** | 📈 | **60 PC** | Tier 3 | Self/Global | For 1 hour, all card prices in the store are doubled for everyone but you. |
