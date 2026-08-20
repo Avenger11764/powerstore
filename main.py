@@ -125,6 +125,10 @@ def parse_json_dict(val) -> dict:
                 if isinstance(res, dict): return res
             except Exception:
                 pass
+        if val.strip().lower() == 'eliminated':
+            return {'eliminated': True, 'state': 'eliminated'}
+        if val.strip().lower() == 'active':
+            return {'eliminated': False, 'state': 'active'}
     return {}
 
 def parse_json_list(val) -> list:
@@ -218,11 +222,11 @@ def extract_telegram_id(data: dict):
     return None
 
 def get_player_data(user_id: int) -> dict:
-    """Retrieves player data from Supabase using Telegram_id, telegram_id or user_id."""
+    """Retrieves player data from Supabase using telegram_id, Telegram_id or user_id."""
     if not db: return None
     try:
         response = None
-        for col in ['Telegram_id', 'telegram_id', 'user_id']:
+        for col in ['telegram_id', 'Telegram_id', 'user_id']:
             for val in [str(user_id), int(user_id)]:
                 try:
                     res = db.table('users').select('*').eq(col, val).execute()
@@ -251,6 +255,8 @@ def is_player_eliminated(player_data: dict) -> bool:
         return False
     status = player_data.get('status', {})
     if isinstance(status, str):
+        if status.strip().lower() == 'eliminated':
+            return True
         status = parse_json_dict(status)
     if not isinstance(status, dict):
         status = {}
@@ -323,9 +329,8 @@ def save_player_data(user_id: int, player_data: dict):
     """Upserts full player profile into Supabase."""
     if not db: return
     try:
-        # Build exact clean payload for Supabase users table schema
         payload = {
-            'Telegram_id': str(user_id),
+            'telegram_id': str(user_id),
             'username': player_data.get('username') or f"user_{user_id}",
             'first_name': player_data.get('first_name') or "Player",
             'in_game_name': player_data.get('in_game_name') or player_data.get('first_name') or "Player",
@@ -335,27 +340,24 @@ def save_player_data(user_id: int, player_data: dict):
             'msgc_registered': player_data.get('msgc_registered', False)
         }
         
-        # Primary attempt: upsert using Telegram_id
         try:
-            res = db.table('users').upsert(payload, on_conflict='Telegram_id').execute()
+            res = db.table('users').upsert(payload, on_conflict='telegram_id').execute()
             if res and hasattr(res, 'data') and res.data:
-                logger.info(f"Successfully saved player {user_id} in Supabase via Telegram_id.")
+                logger.info(f"Successfully saved player {user_id} in Supabase via telegram_id.")
                 return
         except Exception as e1:
-            logger.warning(f"Upsert on Telegram_id failed: {e1}")
+            logger.warning(f"Upsert on telegram_id failed: {e1}")
 
-        # Fallback 1: upsert using lowercase telegram_id
         try:
-            payload_fallback = {'telegram_id': str(user_id), **payload}
-            payload_fallback.pop('Telegram_id', None)
-            res = db.table('users').upsert(payload_fallback, on_conflict='telegram_id').execute()
+            payload_fallback = {'Telegram_id': str(user_id), **payload}
+            payload_fallback.pop('telegram_id', None)
+            res = db.table('users').upsert(payload_fallback, on_conflict='Telegram_id').execute()
             if res and hasattr(res, 'data') and res.data:
-                logger.info(f"Successfully saved player {user_id} with telegram_id.")
+                logger.info(f"Successfully saved player {user_id} with Telegram_id.")
                 return
         except Exception as e2:
-            logger.warning(f"Upsert on telegram_id failed: {e2}")
+            logger.warning(f"Upsert on Telegram_id failed: {e2}")
 
-        # Fallback 2: insert directly without on_conflict parameter
         try:
             res = db.table('users').insert(payload).execute()
             logger.info(f"Successfully inserted player {user_id} directly.")
@@ -370,11 +372,11 @@ def update_player_data(user_id: int, updates: dict):
     try:
         payload = {**updates}
         payload.pop('user_id', None)
-        for col in ['Telegram_id', 'telegram_id', 'user_id']:
+        for col in ['telegram_id', 'Telegram_id', 'user_id']:
             for val in [str(user_id), int(user_id)]:
                 try:
                     res = db.table('users').update(payload).eq(col, val).execute()
-                    if res and res.data and len(res.data) > 0:
+                    if res is not None:
                         return
                 except Exception:
                     pass
@@ -1076,14 +1078,22 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
             reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the {card['name']} card back onto {user_name}!"
             
             if card_id == 'flame':
-                user_data['coins'] = max(0, user_data.get('coins', 0) - 10)
+                user_data['coins'] = max(0, user_data.get('coins', 0) - 15)
+                reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Flame card back onto {user_name}, burning 15 coins!"
             elif card_id == 'devil':
                 stolen_amount = min(25, user_data.get('coins', 0))
                 user_data['coins'] = max(0, user_data.get('coins', 0) - stolen_amount)
+                target_data['coins'] = target_data.get('coins', 0) + stolen_amount
+                update_player_data(target_id, {'coins': target_data['coins']})
+                reflected_message = f"⚖️ Karma! {target_name}'s karma reversed the Devil card! Instead, {target_name} stole {stolen_amount} Power Coins from {user_name}!"
             elif card_id == 'glitch':
-                if user_cards:
-                    c_disc = random.choice(user_cards)
+                disc_pool = [c for c in user_cards if c != 'glitch']
+                if disc_pool:
+                    c_disc = random.choice(disc_pool)
                     user_cards.remove(c_disc)
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Glitch back onto {user_name}, forcing them to discard a {POWER_CARDS.get(c_disc, {}).get('name', c_disc)} card!"
+                else:
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Glitch back onto {user_name}, but they had no other cards to discard!"
             elif card_id == 'steal':
                 stealable = [c for c in user_cards if c != 'steal' and c not in target_cards]
                 if stealable:
@@ -1092,23 +1102,39 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
                     target_cards.append(stolen)
                     update_player_data(target_id, {'cards': target_cards})
                     reflected_message = f"⚖️ Karma! {target_name}'s karma reversed the Steal! Instead, {target_name} stole a {POWER_CARDS[stolen]['name']} card from {user_name}!"
+                else:
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reversed the Steal back onto {user_name}, but there were no cards to take!"
+            elif card_id == 'swap':
+                user_swaps = [c for c in user_cards if c != 'swap']
+                if user_swaps:
+                    c_taken = random.choice(user_swaps)
+                    user_cards.remove(c_taken)
+                    target_cards.append(c_taken)
+                    update_player_data(target_id, {'cards': target_cards})
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Swap back onto {user_name}! {target_name} seized a {POWER_CARDS.get(c_taken, {}).get('name', c_taken)} card from {user_name}!"
+                else:
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Swap back onto {user_name}, but they had no cards to give!"
             elif card_id == 'spotlight':
                 c_disp = [c for c in user_cards if c != 'spotlight']
                 cards_str = ", ".join([POWER_CARDS[cid]['name'] for cid in c_disp if cid in POWER_CARDS]) if c_disp else "None"
                 reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Spotlight back onto {user_name}!\n💡 Their cards are: {cards_str}"
             elif card_id == 'purge':
-                if card_args:
-                    p_name = " ".join(card_args)
-                    p_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == p_name.lower()), None)
-                    if p_id and p_id in user_cards:
-                        user_cards.remove(p_id)
-                        reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Purge back onto {user_name}, forcing them to discard their own {POWER_CARDS[p_id]['name']} card!"
+                p_args = [a for a in (card_args or []) if not a.startswith('@')]
+                p_name = " ".join(p_args).strip()
+                p_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == p_name.lower()), None)
+                if p_id and p_id in user_cards:
+                    user_cards.remove(p_id)
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Purge back onto {user_name}, forcing them to discard their own {POWER_CARDS[p_id]['name']} card!"
+                elif p_id:
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Purge back onto {user_name}, but {user_name} did not have a {POWER_CARDS[p_id]['name']} card!"
+                else:
+                    reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Purge back onto {user_name}!"
             elif card_id == 'amnesia':
                 user_cards = []
                 reflected_message = f"⚖️ Karma! {target_name}'s karma reflected Amnesia back onto {user_name}, forcing them to discard their entire hand!"
             elif card_id == 'shackle':
                 user_status['shackled_until'] = time.time() + (1 * 60 * 60)
-                reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Shackle back onto {user_name}!"
+                reflected_message = f"⚖️ Karma! {target_name}'s karma reflected the Shackle back onto {user_name}! They are shackled for 1 hour."
 
             if card_id in user_cards: user_cards.remove(card_id)
             user_status['last_card_use_time'] = time.time()
@@ -1147,9 +1173,9 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         user_data['coins'] = user_data.get('coins', 0) + gained
         effect_message = f"♻️ {user_name} used Re-roll, discarded {len(cards_to_reroll)} cards, and regained {gained} coins!"
     elif card_id == 'flame':
-        target_coins = max(0, target_data.get('coins', 0) - 10)
+        target_coins = max(0, target_data.get('coins', 0) - 15)
         update_player_data(target_id, {'coins': target_coins})
-        effect_message = f"🔥 {user_name} used Flame on {target_name}, burning 10 Power Coins!"
+        effect_message = f"🔥 {user_name} used Flame on {target_name}, burning 15 Power Coins!"
     elif card_id == 'angel':
         if user_data.get('coins', 0) < 20:
             raise Exception("You need at least 20 coins to use the Angel card.")
@@ -1493,6 +1519,43 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
         await safe_reply(update, "❌ Non-MSGC players cannot challenge MSGC registered players.")
         return
 
+    target_status = target_data.get('status', {}) or {}
+    now = time.time()
+
+    if target_status.get('trap_active'):
+        target_status['trap_active'] = False
+        update_player_data(target.id, {'status': target_status})
+        user_coins = max(0, attacker_data.get('coins', 0) - 15)
+        att_cards = list(attacker_data.get('cards', []))
+        if 'double_or_nothing' in att_cards: att_cards.remove('double_or_nothing')
+        att_status = attacker_data.get('status', {}) or {}
+        att_status['last_card_use_time'] = now
+        update_player_data(attacker.id, {'coins': user_coins, 'cards': att_cards, 'status': att_status})
+        await safe_reply(update, f"🪤 Sprung! {target.first_name}'s Trap nullified Double or Nothing and made {attacker.first_name} lose 15 coins!")
+        return
+
+    if target_status.get('karma_active_until', 0) > now:
+        update_player_data(attacker.id, {'coins': max(0, attacker_data.get('coins', 0) - wager)})
+        update_player_data(target.id, {'coins': target_data.get('coins', 0) + wager})
+        att_cards = list(attacker_data.get('cards', []))
+        if 'double_or_nothing' in att_cards: att_cards.remove('double_or_nothing')
+        att_status = attacker_data.get('status', {}) or {}
+        att_status['last_card_use_time'] = now
+        update_player_data(attacker.id, {'cards': att_cards, 'status': att_status})
+        await safe_reply(update, f"⚖️ Karma! {target.first_name}'s karma reflected Double or Nothing back onto {attacker.first_name}! {attacker.first_name} automatically lost {wager} coins to {target.first_name}!")
+        return
+
+    if target_status.get('protected'):
+        target_status['protected'] = False
+        update_player_data(target.id, {'status': target_status})
+        att_cards = list(attacker_data.get('cards', []))
+        if 'double_or_nothing' in att_cards: att_cards.remove('double_or_nothing')
+        att_status = attacker_data.get('status', {}) or {}
+        att_status['last_card_use_time'] = now
+        update_player_data(attacker.id, {'cards': att_cards, 'status': att_status})
+        await safe_reply(update, f"🛡️ Blocked! {target.first_name}'s Forcefield deflected the Double or Nothing challenge!")
+        return
+
     winner, loser = (attacker, target) if random.random() < 0.5 else (target, attacker)
     winner_data = attacker_data if winner.id == attacker.id else target_data
     loser_data = target_data if winner.id == attacker.id else attacker_data
@@ -1619,6 +1682,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
         elif power == 'smite':
             target_status = target_data.get('status', {}) or {}
+            now = time.time()
             if target_status.get('trap_active'):
                 target_status['trap_active'] = False
                 user_coins = max(0, user_data.get('coins', 0) - 15)
@@ -1626,6 +1690,11 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 update_player_data(user.id, {'coins': user_coins})
                 effect_message = f"🪤 Sprung! {target_data.get('first_name')}'s Trap nullified God's Smite and made {user_name} lose 15 coins!"
                 override_gif = 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExam55aGthejd1ano0Mm1uY3FqNzFvZjV2b2xzcnA3OGc1ajZ5a2dzbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/26vUSsA7qFftHrgCk/giphy.gif'
+            elif target_status.get('karma_active_until', 0) > now:
+                coins_lost = user_data.get('coins', 0) // 2
+                user_data['coins'] = max(0, user_data.get('coins', 0) - coins_lost)
+                update_player_data(user.id, {'coins': user_data['coins']})
+                effect_message = f"⚖️ Karma! {target_data.get('first_name')}'s karma reflected God's Smite back onto {user_name}, destroying half their coins ({coins_lost} PC)!"
             elif target_status.get('protected'):
                 target_status['protected'] = False
                 update_player_data(target_data['user_id'], {'status': target_status})
