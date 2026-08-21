@@ -54,16 +54,13 @@ Here is the exact price list, tier ranking, target type, and description of all 
 
 ---
 
-### 👑 The God Card Divine Powers & Limits
+### 👑 The God Card Divine Powers
 
-The **God Card** holds ultimate authority with strict global and daily balancing limits:
+The **God Card** holds ultimate authority:
 
-- ⚡ **Daily Player Limit:** Max **2 God Card uses** per player per day (`⚡ God Card Uses Today: X/2`).
 - 🛐 **God's Tribute:** Collects 5 PC tribute from all other players.
-  - **Global Limit:** Max **1 Tribute globally every 24 hours** across the entire bot.
   - **DM Alerts:** Automatically DMs every player notifying them who received their tribute.
 - ⚡ **God's Smite:** Destroys 50% of a target player's coins.
-  - **Global Limit:** Max **2 Smites globally every 24 hours** across the entire bot.
 - 🛐 **God's Blessing:** Grants a free Karma card to a target player.
 
 ---
@@ -74,13 +71,13 @@ Admins can trigger **7 special events** to boost chat engagement. All events inc
 
 | Event Command | Name | Duration | Description & Effects |
 | :--- | :--- | :---: | :--- |
-| `/startevent bogo` | **BOGO Sale** 🎁 | 15 Mins | Purchases in `/store` include a FREE Tier 1 or 2 bonus card. |
-| `/startevent secretsanta` | **Secret Santa** 🎅 | Instant | Automatically shuffles players to exchange cards/coins with DM alerts. |
-| `/startevent rushhour` | **Rush Hour** ⏰ | 1 Hour | All card usage cooldown timers are disabled (0s wait). |
-| `/startevent truce` | **Truce** 🤝 | 15 Mins | All negative and attacking cards are disabled. |
+| `/startevent bogo` | **BOGO Sale** 🎁 | 15 Min | Every store purchase includes a free random Tier 1/2 card. |
+| `/startevent secretsanta` | **Secret Santa** 🎅 | Instant | Players are paired to randomly exchange cards or coins with DM alerts. |
+| `/startevent rushhour` | **Rush Hour** ⏰ | 1 Hour | All card cooldowns are bypassed (0s cooldown). |
+| `/startevent truce` | **Truce** 🤝 | 15 Min | All negative and offensive cards are disabled. |
 | `/startevent gambit` | **Gambit** 🎲 | Instant | Every registered player receives a random non-God card in their DM. |
-| `/startevent coinrush` | **Coin Rush** 💰 | 10 Mins | Random messages in group chats drop bonus coins (2-5 PC). |
-| `/startevent freebiefrenzy` | **Freebie Frenzy** 🎁 | 15 Mins | Tier 1 cards (except Angel) become 100% FREE in the store. |
+| `/startevent coinrush` | **Coin Rush** 💰 | 10 Min | Group chat messages drop free bonus coins (5–15 PC). |
+| `/startevent freebiefrenzy` | **Freebie Frenzy** 🎁 | 15 Min | All Tier 1 cards (except Angel) are 100% FREE in the store. |
 
 - `/endevent` — Terminates all active events immediately.
 

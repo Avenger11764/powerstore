@@ -571,7 +571,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "⚡ *POWER STORE BOT HELP* 🎮\n\n"
         "👤 *PLAYER COMMANDS:*\n"
         "• /start — Register and receive starter coins\n"
-        "• /profile — Check coins, cards, status & daily God card limit (DM only)\n"
+        "• /profile — Check coins, cards & status (DM only)\n"
         "• /store — Open interactive card store (DM only)\n"
         "• /use <CardName> [@target] — Activate a card power\n"
         "• /help — Display this help menu\n"
@@ -660,18 +660,12 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if player_data.get('msgc_registered'):
         status_list.append("MSGC Registered ✅")
 
-    from datetime import datetime
-    today_str = datetime.utcnow().strftime('%Y-%m-%d')
-    last_god_date = status.get('last_god_use_date', '')
-    god_uses_today = status.get('god_card_uses_today', 0) if last_god_date == today_str else 0
-
     status_str = escape_markdown_v2(", ".join(status_list) if status_list else "Normal")
 
     message = (
         f"👤 *Profile for {safe_first_name}*\n\n"
         f"💰 *Power Coins:* {player_data.get('coins', 0)} PC\n"
         f"🎴 *Your Cards:* {cards_str}\n"
-        f"⚡ *God Card Uses Today:* {god_uses_today}/2\n"
         f"✨ *Status:* {status_str}"
     )
     await send_safe_message(msg or chat, message, parse_mode='MarkdownV2')
@@ -1666,41 +1660,6 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         user_data = get_player_data(user.id)
         if not user_data: return
 
-        # Check daily God card usage limit (Max 2 per day per player)
-        from datetime import datetime
-        now = time.time()
-        today_str = datetime.utcnow().strftime('%Y-%m-%d')
-        user_status = user_data.get('status', {}) or {}
-        last_god_date = user_status.get('last_god_use_date', '')
-        god_uses_today = user_status.get('god_card_uses_today', 0) if last_god_date == today_str else 0
-
-        if god_uses_today >= 2:
-            await safe_reply(update, "❌ You have reached your limit of 2 God card uses for today! Try again tomorrow.")
-            return
-
-        game_state = get_game_state()
-
-        # Global 24-Hour Limits for Tribute (Max 1 globally per 24h) and Smite (Max 2 globally per 24h)
-        if power == 'tribute':
-            last_tribute = game_state.get('last_tribute_time', 0)
-            if now - last_tribute < (24 * 60 * 60):
-                remaining = int((24 * 60 * 60) - (now - last_tribute))
-                hrs = remaining // 3600
-                mins = (remaining % 3600) // 60
-                await safe_reply(update, f"❌ God's Tribute can only be used once globally every 24 hours! A Tribute was already used in the last 24h. Try again in {hrs}h {mins}m.")
-                return
-
-        elif power == 'smite':
-            smite_times = list(game_state.get('smite_times', []))
-            recent_smites = [ts for ts in smite_times if now - ts < (24 * 60 * 60)]
-            if len(recent_smites) >= 2:
-                oldest_smite = min(recent_smites)
-                remaining = int((24 * 60 * 60) - (now - oldest_smite))
-                hrs = remaining // 3600
-                mins = (remaining % 3600) // 60
-                await safe_reply(update, f"❌ God's Smite has already been used 2 times in the last 24 hours! Try again in {hrs}h {mins}m.")
-                return
-
         user_is_msgc = bool(user_data.get('msgc_registered', False))
         target_data = None
 
@@ -1798,19 +1757,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             await safe_reply(update, "Invalid God power. Choose Blessing, Smite, or Tribute.")
             return
 
-        # Record global 24-hour limit timestamps
-        if power == 'tribute':
-            update_game_state({'last_tribute_time': now})
-        elif power == 'smite':
-            smite_times = list(game_state.get('smite_times', []))
-            recent_smites = [ts for ts in smite_times if now - ts < (24 * 60 * 60)]
-            recent_smites.append(now)
-            update_game_state({'smite_times': recent_smites})
-
-        # Track daily God card usage
-        user_status['god_card_uses_today'] = god_uses_today + 1
-        user_status['last_god_use_date'] = today_str
-
+        user_status = user_data.get('status', {}) or {}
         u_cards = list(user_data.get('cards', []))
         if 'god' in u_cards: u_cards.remove('god')
         update_player_data(user.id, {'coins': user_data.get('coins', 0), 'cards': u_cards, 'status': user_status})
