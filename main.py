@@ -40,6 +40,21 @@ if hasattr(config, "ADMIN_USER_IDS"):
             ADMIN_USER_IDS.append(int(aid))
 
 ADMIN_USER_ID = ADMIN_USER_IDS[0]
+NO_COOLDOWN_USER_IDS = [7015866192]  # Mika (@cyberrghoull)
+INFLATION_EXEMPT_USER_IDS = [7015866192]  # Mika (@cyberrghoull)
+
+def is_user_exempt_from_inflation(user_id: int, player_status: dict = None) -> bool:
+    """Checks if a user is immune or exempt from inflation price doubling."""
+    if not user_id:
+        return False
+    try:
+        if int(user_id) in INFLATION_EXEMPT_USER_IDS:
+            return True
+    except (ValueError, TypeError):
+        pass
+    if isinstance(player_status, dict) and player_status.get('inflation_immunity_until', 0) > time.time():
+        return True
+    return False
 
 def is_admin(user_id: int) -> bool:
     """Checks if a user ID is an authorized admin."""
@@ -94,7 +109,7 @@ POWER_CARDS = {
     'ricochet': {'name': 'Ricochet', 'description': 'Activate this card.For the next 1 hr, the next negative card used on you is redirected to a random other player in the game (not the original sender).', 'price': 40, 'icon': '↪️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjI4amMyaGp5aTdzd2JrdDdocGFiaGtsc2IycDl4Y2RjdTZ3ZGxmdyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/hje9Yxu2SNtNlx80oZ/giphy.gif'},
     'clairvoyance': {'name': 'Clairvoyance', 'description': 'Reveal the true cards of a target user, even if they are hidden using Mirage. Bypasses Mirage, but not Blackout.', 'price': 40, 'icon': '🔮', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3eG1iMTlsbnk5dWp5azNocWQyNmtyd3l0enY2cWIxdDUyYmpyMnV4byZlcD12MV9naWZzX3NlYXJjaCZjdD1n/n6EMXWDjT9G8Q0EMCQ/giphy.gif'},
     'devil': {'name': 'Devil', 'description': 'Steal 25 Power Coins from an opponent.', 'price': 35, 'icon': '😈', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmE5bGtkOGttb2c1Z29tbm9yOW5obnp0MXRtM2x5MGsxMnNob3pvOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/pw1lmX78sDOyRvMKhZ/giphy.gif'},
-    'karma': {'name': 'Karma', 'description': 'For 15 minutes, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGQwdW5wajFuOTI5N3F6dzJlaWE3aWd2NDJzdDVnYzE5MjFja2lpcSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Th9FMIgIgu9hK/giphy.gif'},
+    'karma': {'name': 'Karma', 'description': 'For 2 hours, any negative card used on you is reflected back to the sender.', 'price': 45, 'icon': '⚖️', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGQwdW5wajFuOTI5N3F6dzJlaWE3aWd2NDJzdDVnYzE5MjFja2lpcSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Th9FMIgIgu9hK/giphy.gif'},
     'swap': {'name': 'Swap', 'description': 'Swap a random card from your hand with a random card from a target\'s hand.', 'price': 35, 'icon': '🔄', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGVyMXk3dzNyOGRqeWsxbm9zejZ4N3QzcXF4ajQ2NXh0bjJwcHlsbCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HWVx61TKUD7nGdruml/giphy.gif'},
     'steal': {'name': 'Steal', 'description': 'Steals a random card from the target user.', 'price': 40, 'icon': '🥷', 'tier': 3, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExenVqNmVweWFwdzJiOWMxNmN0YzFkZHB2dTQ3bXIzeGlzc28xdmhvayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/HUtsjiqzv1M9a/giphy.gif'},
     'inflation': {'name': 'Inflation', 'description': 'For 1 hour, all card prices in the store are doubled for everyone but you.', 'price': 60, 'icon': '📈', 'tier': 3, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbGtsejkyemNsbWhseXpzaGIxOTJ6eDNheGNoYmp4YjJ1Yjg5dGQ1NiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/gKxSdzHFNUpZ8EKirE/giphy.gif'},
@@ -634,8 +649,11 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     game_state = get_game_state()
     inflation_active = game_state.get('inflation_until', 0) > time.time()
     inflation_user_id = game_state.get('inflation_user_id')
-    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and status.get('inflation_immunity_until', 0) < now
-    if is_affected_by_inflation:
+    user_exempt_inflation = is_user_exempt_from_inflation(user_id, status)
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and not user_exempt_inflation
+    if user_exempt_inflation and inflation_active:
+        status_list.append("Immune to Inflation 🛡️")
+    elif is_affected_by_inflation:
         status_list.append("Affected by Inflation 📈")
     if is_player_eliminated(player_data):
         status_list.append("Eliminated 💀")
@@ -670,7 +688,7 @@ def build_store_menu(user_id, telegram_user=None):
     inflation_active = game_state.get('inflation_until', 0) > time.time()
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
-    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and not is_user_exempt_from_inflation(user_id, player_status)
 
     freebie_frenzy_active = game_state.get('freebie_frenzy_until', 0) > time.time()
     bogo_active = game_state.get('bogo_active_until', 0) > time.time()
@@ -747,7 +765,7 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     inflation_active = game_state.get('inflation_until', 0) > time.time()
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
-    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and not is_user_exempt_from_inflation(user_id, player_status)
     freebie_frenzy_active = game_state.get('freebie_frenzy_until', 0) > time.time()
 
     price = card['price']
@@ -824,7 +842,7 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     inflation_active = game_state.get('inflation_until', 0) > time.time()
     inflation_user_id = game_state.get('inflation_user_id')
     black_market_active = player_status.get('black_market_until', 0) > time.time()
-    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and player_status.get('inflation_immunity_until', 0) < time.time()
+    is_affected_by_inflation = inflation_active and user_id != inflation_user_id and not is_user_exempt_from_inflation(user_id, player_status)
     freebie_frenzy_active = game_state.get('freebie_frenzy_until', 0) > time.time()
 
     price = card['price']
@@ -919,10 +937,11 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await safe_reply(update, f"🛑 The '{card_name}' card is currently disabled by the Admin and cannot be used!")
         return
 
-    # Rush Hour check: Disable card cooldown
+    # Rush Hour & Exemption check: Disable card cooldown
     rush_hour_active = game_state.get('rush_hour_until', 0) > now
+    user_exempt_cooldown = user.id in NO_COOLDOWN_USER_IDS or status.get('no_cooldown', False)
     
-    if status.get('frenzy_active', 0) == 0 and not rush_hour_active:
+    if status.get('frenzy_active', 0) == 0 and not rush_hour_active and not user_exempt_cooldown:
         last_use = status.get('last_card_use_time', 0)
         cooldown = 5 * 60
 
@@ -1205,8 +1224,8 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         user_data['coins'] = user_data.get('coins', 0) + stolen
         effect_message = f"😈 {user_name} used a Devil card and stole {stolen} Power Coins from {target_name}!"
     elif card_id == 'karma':
-        user_status['karma_active_until'] = time.time() + (15 * 60)
-        effect_message = f"⚖️ {user_name} activated a Karma card! Negative cards will be reflected for 15 minutes."
+        user_status['karma_active_until'] = time.time() + (2 * 60 * 60)
+        effect_message = f"⚖️ {user_name} activated a Karma card! Negative cards will be reflected for 2 hours."
     elif card_id == 'ricochet':
         user_status['ricochet_active_until'] = time.time() + (1 * 60 * 60)
         effect_message = f"↪️ {user_name} activated Ricochet! The next negative card will be redirected."
@@ -1375,22 +1394,31 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         original_target_data = get_player_data(result['data']['original_target_id'])
         card_name = POWER_CARDS[result['data']['card_id']]['name']
         
-        await safe_reply(update, f"↪️ {original_target_data['first_name']}'s Ricochet redirected the {card_name} card from {attacker_data['first_name']}!")
-
         all_players = get_all_players()
         attacker_is_msgc = bool(attacker_data.get('msgc_registered', False)) if attacker_data else False
         potential_targets = [
             p for p in all_players
-            if p['user_id'] != result['data']['attacker_id']
+            if p.get('user_id')
+            and str(p.get('user_id')) != '0'
+            and p['user_id'] != result['data']['attacker_id']
             and p['user_id'] != result['data']['original_target_id']
+            and not is_player_eliminated(p)
             and bool(p.get('msgc_registered', False)) == attacker_is_msgc
         ]
 
         if not potential_targets:
-            await safe_reply(update, "...but there was no one else to redirect it to!")
+            await safe_reply(update, f"↪️ {original_target_data['first_name']}'s Ricochet activated, but there was no other valid player to redirect the {card_name} card to!")
             return
 
         new_target_data = random.choice(potential_targets)
+        ricochet_header = f"↪️ {original_target_data['first_name']}'s Ricochet redirected the {card_name} card from {attacker_data['first_name']} to {new_target_data['first_name']}!"
+        
+        ricochet_gif = POWER_CARDS['ricochet'].get('gif')
+        if ricochet_gif:
+            await safe_reply_animation(update, animation=ricochet_gif, caption=ricochet_header)
+        else:
+            await safe_reply(update, ricochet_header)
+
         redirect_result = process_use_card(attacker_data, new_target_data, result['data']['card_id'], result['data']['card_args'])
 
         if 'public' in redirect_result and redirect_result['public']:
@@ -1405,7 +1433,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
             except Exception as e:
                 logger.warning(f"Could not send DM to redirected target {new_target_data['user_id']}: {e}")
 
-        await log_activity(update.get_bot(), redirect_result.get('public') or redirect_result.get('private'))
+        await log_activity(context.bot, f"↪️ Ricochet: {original_target_data['first_name']} redirected {card_name} from {attacker_data['first_name']} to {new_target_data['first_name']}. Effect: {redirect_result.get('public', '')}")
         return
 
     if result.get('action') == 'trigger_vortex':
@@ -1454,7 +1482,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         summary_message = "\n".join(discard_summary)
         await safe_reply(update, summary_message)
-        await log_activity(update.get_bot(), summary_message)
+        await log_activity(context.bot, summary_message)
         return
 
     if 'public' in result and result['public']:
@@ -1471,7 +1499,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         user_is_msgc = bool(user_data.get('msgc_registered', False)) if user_data else False
         for p in all_players:
             p_is_msgc = bool(p.get('msgc_registered', False))
-            if p['user_id'] != user.id and p_is_msgc == user_is_msgc:
+            if p['user_id'] != user.id and p_is_msgc == user_is_msgc and not is_user_exempt_from_inflation(p['user_id'], p.get('status')):
                 try:
                     await context.bot.send_message(
                         chat_id=p['user_id'],
@@ -1487,7 +1515,7 @@ async def execute_card_effect(update: Update, context: ContextTypes.DEFAULT_TYPE
         except Exception as e:
             logger.warning(f"Could not send DM to target user {target_user.id}: {e}")
         
-    await log_activity(update.get_bot(), result.get('public') or result.get('private'))
+    await log_activity(context.bot, result.get('public') or result.get('private'))
 
 
 # --- DOUBLE OR NOTHING LOGIC ---
@@ -1544,6 +1572,31 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
         update_player_data(attacker.id, {'cards': att_cards, 'status': att_status})
         await safe_reply(update, f"⚖️ Karma! {target.first_name}'s karma reflected Double or Nothing back onto {attacker.first_name}! {attacker.first_name} automatically lost {wager} coins to {target.first_name}!")
         return
+
+    if target_status.get('ricochet_active_until', 0) > now:
+        target_status['ricochet_active_until'] = 0
+        update_player_data(target.id, {'status': target_status})
+        all_players = get_all_players()
+        attacker_is_msgc = bool(attacker_data.get('msgc_registered', False)) if attacker_data else False
+        potential = [
+            p for p in all_players
+            if p.get('user_id') and str(p.get('user_id')) != '0'
+            and p['user_id'] != attacker.id and p['user_id'] != target.id
+            and not is_player_eliminated(p)
+            and bool(p.get('msgc_registered', False)) == attacker_is_msgc
+            and p.get('coins', 0) >= wager
+        ]
+        if potential:
+            new_target_dict = random.choice(potential)
+            class PseudoTarget:
+                def __init__(self, uid, fname, uname):
+                    self.id = uid
+                    self.first_name = fname
+                    self.username = uname
+            new_target = PseudoTarget(new_target_dict['user_id'], new_target_dict.get('first_name', 'Player'), new_target_dict.get('username'))
+            await safe_reply(update, f"↪️ {target.first_name}'s Ricochet redirected Double or Nothing onto {new_target.first_name}!")
+            await handle_double_or_nothing_challenge(update, context, attacker, new_target)
+            return
 
     if target_status.get('protected'):
         target_status['protected'] = False
@@ -1695,6 +1748,24 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 user_data['coins'] = max(0, user_data.get('coins', 0) - coins_lost)
                 update_player_data(user.id, {'coins': user_data['coins']})
                 effect_message = f"⚖️ Karma! {target_data.get('first_name')}'s karma reflected God's Smite back onto {user_name}, destroying half their coins ({coins_lost} PC)!"
+            elif target_status.get('ricochet_active_until', 0) > now:
+                target_status['ricochet_active_until'] = 0
+                update_player_data(target_data['user_id'], {'status': target_status})
+                all_players = get_all_players()
+                potential = [
+                    p for p in all_players
+                    if p.get('user_id') and str(p.get('user_id')) != '0'
+                    and p['user_id'] != user.id and p['user_id'] != target_data['user_id']
+                    and not is_player_eliminated(p)
+                    and bool(p.get('msgc_registered', False)) == user_is_msgc
+                ]
+                if potential:
+                    new_target = random.choice(potential)
+                    coins_lost = new_target.get('coins', 0) // 2
+                    update_player_data(new_target['user_id'], {'coins': new_target.get('coins', 0) - coins_lost})
+                    effect_message = f"↪️ {target_data.get('first_name')}'s Ricochet redirected God's Smite onto {new_target.get('first_name')}, destroying half their coins ({coins_lost} PC)!"
+                else:
+                    effect_message = f"↪️ {target_data.get('first_name')}'s Ricochet activated, but there was no one else to redirect God's Smite to!"
             elif target_status.get('protected'):
                 target_status['protected'] = False
                 update_player_data(target_data['user_id'], {'status': target_status})
