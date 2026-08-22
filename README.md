@@ -18,7 +18,7 @@ An interactive card game, economy, and power-up Telegram bot designed for group 
 
 ## 🎴 Power Cards Catalog
 
-Here is the exact price list, tier ranking, target type, and description of all **29 Power Cards** as defined in the bot store:
+Here is the exact price list, tier ranking, target type, and description of all **30 Power Cards** as defined in the bot store:
 
 | Card Name | Icon | Price | Tier | Target | Description |
 | :--- | :---: | :---: | :---: | :---: | :--- |
@@ -29,6 +29,7 @@ Here is the exact price list, tier ranking, target type, and description of all 
 | **Re-roll** | ♻️ | **15 PC** | Tier 1 | Self/Global | Discard your entire hand to gain back 75% of its total coin value. |
 | **Black Market** | 💰 | **40 PC** | Tier 1 | Self/Global | For 5 minutes, all items in the store are 50% off for you. |
 | **Lottery Ticket** | 🎟️ | **5 PC** | Tier 1 | Self/Global | A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky. |
+| **Coin Insurance** | 💼 | **25 PC** | Tier 1 | Self/Passive | Passive inventory card. Automatically refunds 50% of any coins stolen or burned from attacks. |
 | **Flame** | 🔥 | **20 PC** | Tier 2 | Targeted | Burn 15 Power Coins from a target player. |
 | **Glitch** | 🌀 | **30 PC** | Tier 2 | Targeted | Force a target player to randomly discard one of their cards. |
 | **Shackle** | ⛓️ | **30 PC** | Tier 2 | Targeted | For 1 hour, your target is unable to use any cards. |
@@ -62,6 +63,16 @@ The **God Card** holds ultimate authority:
   - **DM Alerts:** Automatically DMs every player notifying them who received their tribute.
 - ⚡ **God's Smite:** Destroys 50% of a target player's coins.
 - 🛐 **God's Blessing:** Grants a free Karma card to a target player.
+
+---
+
+### 🛡️ Anti-Targeting & Player Protection Suite
+
+To prevent unfair dogpiling and continuous targeting of single players:
+1. **🛡️ 15-Minute Attack Grace Period ("Victim Shield"):** Whenever a player is hit by an offensive card (`Flame`, `Devil`, `Glitch`, `Steal`, `Swap`, `Purge`, `Amnesia`, `Shackle`, `Double or Nothing`, `God Smite`), they gain a 15-minute recovery shield during which no other player can target them with negative cards.
+2. **💰 Bankruptcy Floor (10 PC Protection):** Players with 10 PC or less cannot be targeted by coin-draining attacks (`Flame`, `Devil`, `God Smite`).
+3. **📈 30% Escalating Repeat Attack Penalty:** If an attacker repeatedly uses the same card against the same player, they must pay an escalating surcharge (+30% of card price per repeat) to balance gameplay.
+4. **💼 Coin Insurance (Tier 1 Passive):** When held in inventory, automatically refunds 50% of any coins stolen or burned by attacks.
 
 ---
 

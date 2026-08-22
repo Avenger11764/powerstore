@@ -63,6 +63,30 @@ def is_admin(user_id: int) -> bool:
     except Exception:
         return False
 
+def get_daily_loss(status: dict) -> int:
+    """Calculates total coins lost from attacks in the last 24 hours."""
+    if not isinstance(status, dict):
+        return 0
+    now = time.time()
+    history = status.get('daily_loss_history', [])
+    if not isinstance(history, list):
+        return 0
+    valid = [entry for entry in history if isinstance(entry, dict) and now - entry.get('time', 0) < 86400]
+    return sum(entry.get('amount', 0) for entry in valid)
+
+def record_daily_loss(status: dict, amount: int):
+    """Records a coin loss from an attack in the 24-hour rolling tracker."""
+    if not isinstance(status, dict):
+        return
+    now = time.time()
+    history = status.get('daily_loss_history', [])
+    if not isinstance(history, list):
+        history = []
+    valid = [entry for entry in history if isinstance(entry, dict) and now - entry.get('time', 0) < 86400]
+    if amount > 0:
+        valid.append({'amount': amount, 'time': now})
+    status['daily_loss_history'] = valid
+
 # --- SETUP ---
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -92,6 +116,7 @@ POWER_CARDS = {
     'reroll': {'name': 'Re-roll', 'description': 'Discard your entire hand to gain back 75% of its total coin value.', 'price': 15, 'icon': '♻️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdTdyZng0bzloNnlvajdzdDIxc2VjMjl2OTN4MW9wdzlmbHZ0amd2ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/Loe03BsYRrv13l8h9q/giphy.gif'},
     'black_market': {'name': 'Black Market', 'description': 'For 5 minutes, all items in the store are 50% off for you.', 'price': 40, 'icon': '💰', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYjJsaXhoOTRsc2V6dHU0YnFyNTl6dHR6d2FoZnM1NXZoMjU2YnU5YyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l3vRl0hL5yTjuOFji/giphy.gif'},
     'lottery_ticket': {'name': 'Lottery Ticket', 'description': 'A cheap card with a 2% chance to win 100 coins. A gamble for those feeling lucky.', 'price': 5, 'icon': '🎟️', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNzQ1bmc2MW1iMXFlYjRvN2JteW9sNXczOWxtNjU3MzFhbmIzZm0zdCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/30VBSGB7QW1RJpNcHO/giphy.gif'},
+    'insurance': {'name': 'Coin Insurance', 'description': 'Passive insurance in your inventory. Whenever another player steals or burns your coins, 50% of the lost coins are automatically refunded to you.', 'price': 25, 'icon': '💼', 'tier': 1, 'requires_target': False, 'gif': 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdWU0aDhhZzN3b3g3OHBhaXF1Z3Rsbjhsa2Nydm56NDBpaWxhaXFvYyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/67ThRZlYBvibtdF9JH/giphy.gif'},
     
     # Tier 2: Direct Interaction
     'flame': {'name': 'Flame', 'description': 'Burn 15 Power Coins from a target player.', 'price': 20, 'icon': '🔥', 'tier': 2, 'requires_target': True, 'gif': 'https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3Nm41eWMyOWk0bmZodzc0c2xkZmJ4MWNyMnUyeW5vajc2MGowZGFzbiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/ASM4IvHzkop00e6sUN/giphy.gif'},
@@ -647,6 +672,9 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         status_list.append("Frenzy Active 🔀")
     if status.get('inflation_immunity_until', 0) > now:
         status_list.append("Immune to Inflation 🛡️")
+    if status.get('attack_grace_until', 0) > now:
+        rem_mins = max(1, int((status['attack_grace_until'] - now) // 60))
+        status_list.append(f"Grace Period Active 🛡️ ({rem_mins}m left)")
 
     game_state = get_game_state()
     inflation_active = game_state.get('inflation_until', 0) > time.time()
@@ -1093,7 +1121,37 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         elif not user_is_msgc and target_is_msgc:
             return {'public': "❌ Non-MSGC players cannot use cards on MSGC registered players."}
 
+    repeat_surcharge = 0
+    repeat_count = 0
+    now_time = time.time()
+
     if card_id in NEGATIVE_CARDS and target_data:
+        # 1. Attack Grace Period Check
+        if target_status.get('attack_grace_until', 0) > now_time:
+            rem = int(target_status['attack_grace_until'] - now_time)
+            m = rem // 60
+            s = rem % 60
+            return {'public': f"🛡️ {target_name} is recovering from a recent attack (Attack Grace Period active)! They cannot be targeted for another {m}m {s}s."}
+
+        # 2. Bankruptcy Floor Check (10 PC floor for coin-draining attacks)
+        if card_id in ['flame', 'devil']:
+            target_coins = target_data.get('coins', 0)
+            if target_coins <= 10:
+                return {'public': f"❌ {target_name} only has {target_coins} PC (Bankruptcy Floor is 10 PC). They cannot be targeted with coin-draining attacks!"}
+
+        # 3. 30% Escalating Repeat Attack Surcharge
+        repeat_attacks = user_status.get('repeat_attacks', {})
+        repeat_key = f"{target_id}_{card_id}"
+        repeat_info = repeat_attacks.get(repeat_key, {})
+        if now_time - repeat_info.get('last_time', 0) > 86400:
+            repeat_count = 0
+        else:
+            repeat_count = repeat_info.get('count', 0)
+
+        repeat_surcharge = int(card.get('price', 0) * 0.30 * repeat_count) if repeat_count > 0 else 0
+        if repeat_surcharge > 0 and user_data.get('coins', 0) < repeat_surcharge:
+            return {'public': f"❌ Repeat Attack Penalty! Using {card['name']} on {target_name} again requires an extra {repeat_surcharge} PC fee (+{30*repeat_count}%), but you only have {user_data.get('coins', 0)} PC."}
+
         if target_status.get('trap_active'):
             target_status['trap_active'] = False
             user_coins = max(0, user_data.get('coins', 0) - 15)
@@ -1223,9 +1281,17 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         user_data['coins'] = user_data.get('coins', 0) + gained
         effect_message = f"♻️ {user_name} used Re-roll, discarded {len(cards_to_reroll)} cards, and regained {gained} coins!"
     elif card_id == 'flame':
-        target_coins = max(0, target_data.get('coins', 0) - 15)
-        update_player_data(target_id, {'coins': target_coins})
-        effect_message = f"🔥 {user_name} used Flame on {target_name}, burning 15 Power Coins!"
+        # Apply 10 PC bankruptcy floor protection
+        burned = min(15, max(0, target_data.get('coins', 0) - 10))
+        target_coins = max(0, target_data.get('coins', 0) - burned)
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        update_player_data(target_id, {'coins': target_coins, 'status': target_status})
+        effect_message = f"🔥 {user_name} used Flame on {target_name}, burning {burned} Power Coins!"
+        if 'insurance' in target_cards and burned > 0:
+            refund = int(burned * 0.5)
+            target_coins += refund
+            update_player_data(target_id, {'coins': target_coins})
+            effect_message += f"\n💼 {target_name}'s Coin Insurance refunded {refund} PC back to their account!"
     elif card_id == 'angel':
         if user_data.get('coins', 0) < 20:
             raise Exception("You need at least 20 coins to use the Angel card.")
@@ -1250,10 +1316,18 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         update_player_data(target_id, {'coins': target_data.get('coins', 0) + 20})
         effect_message = f"👼 {user_name} used an Angel card to gift 20 Power Coins to {target_name}! ({len(recent_angel_uses)}/2 Angel uses in 24h)"
     elif card_id == 'devil':
-        stolen = min(25, target_data.get('coins', 0))
-        update_player_data(target_id, {'coins': target_data.get('coins', 0) - stolen})
+        # Apply 10 PC bankruptcy floor protection
+        stolen = min(25, max(0, target_data.get('coins', 0) - 10))
+        target_coins = max(0, target_data.get('coins', 0) - stolen)
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        update_player_data(target_id, {'coins': target_coins, 'status': target_status})
         user_data['coins'] = user_data.get('coins', 0) + stolen
         effect_message = f"😈 {user_name} used a Devil card and stole {stolen} Power Coins from {target_name}!"
+        if 'insurance' in target_cards and stolen > 0:
+            refund = int(stolen * 0.5)
+            target_coins += refund
+            update_player_data(target_id, {'coins': target_coins})
+            effect_message += f"\n💼 {target_name}'s Coin Insurance refunded {refund} PC back to their account!"
     elif card_id == 'karma':
         user_status['karma_active_until'] = time.time() + (2 * 60 * 60)
         effect_message = f"⚖️ {user_name} activated a Karma card! Negative cards will be reflected for 2 hours."
@@ -1281,6 +1355,8 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         cstr = ", ".join([POWER_CARDS[cid]['name'] for cid in target_cards if cid in POWER_CARDS]) if target_cards else "None"
         return {'private': f"🔮 You used Clairvoyance on {target_name}. Their true cards are: {cstr}.", 'public': f"🔮 {user_name} used a Clairvoyance card on another player."}
     elif card_id == 'spotlight':
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        update_player_data(target_id, {'status': target_status})
         if target_status.get('blackout_until', 0) > time.time():
             effect_message = f"🕶️ {user_name}'s Spotlight was blocked! {target_name} is under a Blackout."
         elif target_status.get('mirage_until', 0) > time.time():
@@ -1302,16 +1378,20 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         update_player_data(target_id, {'status': target_status})
         effect_message = f"⏳ {user_name} used Time Warp on {target_name}, ending their Karma or Shackle effect immediately!"
     elif card_id == 'glitch':
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
         if not target_cards:
+            update_player_data(target_id, {'status': target_status})
             effect_message = f"🌀 {user_name} tried to glitch {target_name}, but they had no cards to discard!"
         else:
             disc = random.choice(target_cards)
             target_cards.remove(disc)
-            update_player_data(target_id, {'cards': target_cards})
+            update_player_data(target_id, {'cards': target_cards, 'status': target_status})
             effect_message = f"🌀 {user_name} glitched {target_name}'s hand, forcing them to discard a {POWER_CARDS[disc]['name']} card!"
     elif card_id == 'swap':
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
         user_swaps = [c for c in user_cards if c != 'swap']
         if not user_swaps or not target_cards:
+            update_player_data(target_id, {'status': target_status})
             effect_message = f"🔄 {user_name} tried to swap cards with {target_name}, but the swap failed because one player had no cards to trade!"
         else:
             c_u = random.choice(user_swaps)
@@ -1320,17 +1400,19 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
             user_cards.append(c_t)
             target_cards.remove(c_t)
             target_cards.append(c_u)
-            update_player_data(target_id, {'cards': target_cards})
+            update_player_data(target_id, {'cards': target_cards, 'status': target_status})
             effect_message = f"🔄 {user_name} used a Swap card on {target_name}! A random card was exchanged between them."
     elif card_id == 'steal':
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
         stealable = [c for c in target_cards if c not in user_cards]
         if not stealable:
+            update_player_data(target_id, {'status': target_status})
             effect_message = f"🥷 {user_name} tried to steal from {target_name}, but there were no cards they could take!"
         else:
             stolen = random.choice(stealable)
             target_cards.remove(stolen)
             user_cards.append(stolen)
-            update_player_data(target_id, {'cards': target_cards})
+            update_player_data(target_id, {'cards': target_cards, 'status': target_status})
             effect_message = f"🥷 {user_name} used Steal on {target_name} and took their {POWER_CARDS[stolen]['name']} card!"
     elif card_id == 'inflation':
         update_game_state({
@@ -1341,6 +1423,8 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
     elif card_id == 'black_market':
         user_status['black_market_until'] = time.time() + (5 * 60)
         effect_message = f"💰 {user_name} used Black Market! For the next 5 minutes, all store prices are 50% off for you."
+    elif card_id == 'insurance':
+        raise Exception("💼 Coin Insurance is a passive card! Keep it in your inventory to automatically refund 50% of any coins stolen or burned by attacks.")
     elif card_id == 'purge':
         if not card_args:
             raise Exception("You must specify a card to purge. Usage: /use Purge <Card Name>")
@@ -1348,20 +1432,24 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         p_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == p_name.lower()), None)
         if not p_id:
             raise Exception(f"The card '{p_name}' does not exist.")
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
         if p_id in target_cards:
             target_cards.remove(p_id)
-            update_player_data(target_id, {'cards': target_cards})
+            update_player_data(target_id, {'cards': target_cards, 'status': target_status})
             effect_message = f"🎯 {user_name} used Purge on {target_name} and successfully discarded their {POWER_CARDS[p_id]['name']} card!"
         else:
+            update_player_data(target_id, {'status': target_status})
             effect_message = f"🎯 {user_name} used Purge on {target_name}, but they did not have a {POWER_CARDS[p_id]['name']} card."
     elif card_id == 'amnesia':
-        update_player_data(target_id, {'cards': []})
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        update_player_data(target_id, {'cards': [], 'status': target_status})
         effect_message = f"❓ {user_name} used Amnesia on {target_name}, forcing them to discard their entire hand!"
     elif card_id == 'vortex':
         special_action = "trigger_vortex"
         effect_message = f"🌪️ {user_name} unleashed a Vortex!"
     elif card_id == 'shackle':
         target_status['shackled_until'] = time.time() + (1 * 60 * 60)
+        target_status['attack_grace_until'] = time.time() + (15 * 60)
         update_player_data(target_id, {'status': target_status})
         effect_message = f"⛓️ {user_name} shackled {target_name}! They cannot use cards for 1 hour."
     elif card_id == 'frenzy':
@@ -1389,6 +1477,16 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
 
     if card_id in user_cards:
         user_cards.remove(card_id)
+
+    # Process repeat attack surcharge and update history
+    if card_id in NEGATIVE_CARDS and target_data:
+        if repeat_surcharge > 0:
+            user_data['coins'] = max(0, user_data.get('coins', 0) - repeat_surcharge)
+            effect_message += f"\n⚠️ Repeat Attack Penalty: Charged an extra {repeat_surcharge} PC (+{30*repeat_count}%) for repeatedly targeting {target_name}!"
+        repeat_attacks = user_status.get('repeat_attacks', {})
+        repeat_key = f"{target_id}_{card_id}"
+        repeat_attacks[repeat_key] = {'count': repeat_count + 1, 'last_time': time.time()}
+        user_status['repeat_attacks'] = repeat_attacks
 
     if card_id == 'frenzy':
         user_status['frenzy_active'] = 2
@@ -1581,6 +1679,29 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
     target_status = target_data.get('status', {}) or {}
     now = time.time()
 
+    # 1. Attack Grace Period Check
+    if target_status.get('attack_grace_until', 0) > now:
+        rem = int(target_status['attack_grace_until'] - now)
+        m = rem // 60
+        s = rem % 60
+        await safe_reply(update, f"🛡️ {target.first_name} is recovering from a recent attack (Attack Grace Period active)! They cannot be targeted for another {m}m {s}s.")
+        return
+
+    # 2. 30% Escalating Repeat Attack Surcharge
+    att_status = attacker_data.get('status', {}) or {}
+    repeat_attacks = att_status.get('repeat_attacks', {})
+    repeat_key = f"{target.id}_double_or_nothing"
+    repeat_info = repeat_attacks.get(repeat_key, {})
+    if now - repeat_info.get('last_time', 0) > 86400:
+        repeat_count = 0
+    else:
+        repeat_count = repeat_info.get('count', 0)
+
+    surcharge = int(20 * 0.30 * repeat_count) if repeat_count > 0 else 0
+    if surcharge > 0 and attacker_data.get('coins', 0) < (wager + surcharge):
+        await safe_reply(update, f"❌ Repeat Attack Penalty! Using Double or Nothing on {target.first_name} again requires an extra {surcharge} PC fee (+{30*repeat_count}%), but you only have {attacker_data.get('coins', 0)} PC.")
+        return
+
     if target_status.get('trap_active'):
         target_status['trap_active'] = False
         update_player_data(target.id, {'status': target_status})
@@ -1644,21 +1765,41 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
     winner_data = attacker_data if winner.id == attacker.id else target_data
     loser_data = target_data if winner.id == attacker.id else attacker_data
 
+    target_status['attack_grace_until'] = now + (15 * 60)
     update_player_data(winner.id, {'coins': winner_data.get('coins', 0) + wager})
-    update_player_data(loser.id, {'coins': max(0, loser_data.get('coins', 0) - wager)})
+    
+    loser_coins = max(0, loser_data.get('coins', 0) - wager)
+    insurance_msg = ""
+    if winner.id == attacker.id and 'insurance' in target_data.get('cards', []):
+        refund = int(wager * 0.5)
+        loser_coins += refund
+        insurance_msg = f"\n\n💼 {target.first_name}'s Coin Insurance refunded {refund} PC back to their account!"
+    
+    update_player_data(target.id, {'status': target_status})
+    update_player_data(loser.id, {'coins': loser_coins})
 
     att_cards = list(attacker_data.get('cards', []))
     if 'double_or_nothing' in att_cards:
         att_cards.remove('double_or_nothing')
     att_status = attacker_data.get('status', {}) or {}
     att_status['last_card_use_time'] = time.time()
+    
+    # Process repeat attack surcharge and history
+    surcharge_msg = ""
+    if surcharge > 0:
+        att_coins = max(0, attacker_data.get('coins', 0) - surcharge)
+        update_player_data(attacker.id, {'coins': att_coins})
+        surcharge_msg = f"\n\n⚠️ Repeat Attack Penalty: Charged an extra {surcharge} PC (+{30*repeat_count}%) for repeatedly challenging {target.first_name}!"
+    repeat_attacks[repeat_key] = {'count': repeat_count + 1, 'last_time': now}
+    att_status['repeat_attacks'] = repeat_attacks
+    
     update_player_data(attacker.id, {'cards': att_cards, 'status': att_status})
 
     message = (
         f"🎲 **Double or Nothing!** 🎲\n\n"
         f"{attacker.first_name} challenged {target.first_name}, betting {wager} coins each.\n\n"
         f"The coin flip reveals **{winner.first_name}** as the winner!\n\n"
-        f"{winner.first_name} takes the entire pot of {wager * 2} coins from {loser.first_name}."
+        f"{winner.first_name} takes the entire pot of {wager * 2} coins from {loser.first_name}.{insurance_msg}{surcharge_msg}"
     )
     gif_url = POWER_CARDS['double_or_nothing'].get('gif')
     if gif_url:
@@ -1732,6 +1873,36 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         elif power == 'smite':
             target_status = target_data.get('status', {}) or {}
             now = time.time()
+
+            # 1. Attack Grace Period Check
+            if target_status.get('attack_grace_until', 0) > now:
+                rem = int(target_status['attack_grace_until'] - now)
+                m = rem // 60
+                s = rem % 60
+                await safe_reply(update, f"🛡️ {target_data.get('first_name')} is recovering from a recent attack (Attack Grace Period active)! They cannot be targeted for another {m}m {s}s.")
+                return
+
+            # 2. Bankruptcy Floor Check (10 PC floor)
+            target_coins = target_data.get('coins', 0)
+            if target_coins <= 10:
+                await safe_reply(update, f"❌ {target_data.get('first_name')} only has {target_coins} PC (Bankruptcy Floor is 10 PC). They cannot be targeted with coin-draining attacks!")
+                return
+
+            # 3. 30% Escalating Repeat Attack Surcharge
+            user_status = user_data.get('status', {}) or {}
+            repeat_attacks = user_status.get('repeat_attacks', {})
+            repeat_key = f"{target_data['user_id']}_god_smite"
+            repeat_info = repeat_attacks.get(repeat_key, {})
+            if now - repeat_info.get('last_time', 0) > 86400:
+                repeat_count = 0
+            else:
+                repeat_count = repeat_info.get('count', 0)
+
+            surcharge = int(80 * 0.30 * repeat_count) if repeat_count > 0 else 0
+            if surcharge > 0 and user_data.get('coins', 0) < surcharge:
+                await safe_reply(update, f"❌ Repeat Attack Penalty! Using God's Smite on {target_data.get('first_name')} again requires an extra {surcharge} PC fee (+{30*repeat_count}%), but you only have {user_data.get('coins', 0)} PC.")
+                return
+
             if target_status.get('trap_active'):
                 target_status['trap_active'] = False
                 user_coins = max(0, user_data.get('coins', 0) - 15)
@@ -1757,9 +1928,16 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 ]
                 if potential:
                     new_target = random.choice(potential)
-                    coins_lost = new_target.get('coins', 0) // 2
-                    update_player_data(new_target['user_id'], {'coins': new_target.get('coins', 0) - coins_lost})
-                    effect_message = f"↪️ {target_data.get('first_name')}'s Ricochet redirected God's Smite onto {new_target.get('first_name')}, destroying half their coins ({coins_lost} PC)!"
+                    coins_lost = min(new_target.get('coins', 0) // 2, max(0, new_target.get('coins', 0) - 10))
+                    new_target_coins = max(0, new_target.get('coins', 0) - coins_lost)
+                    n_status = new_target.get('status', {}) or {}
+                    n_status['attack_grace_until'] = now + (15 * 60)
+                    effect_message = f"↪️ {target_data.get('first_name')}'s Ricochet redirected God's Smite onto {new_target.get('first_name')}, destroying {coins_lost} coins!"
+                    if 'insurance' in new_target.get('cards', []) and coins_lost > 0:
+                        refund = int(coins_lost * 0.5)
+                        new_target_coins += refund
+                        effect_message += f"\n💼 {new_target.get('first_name')}'s Coin Insurance refunded {refund} PC back to their account!"
+                    update_player_data(new_target['user_id'], {'coins': new_target_coins, 'status': n_status})
                 else:
                     effect_message = f"↪️ {target_data.get('first_name')}'s Ricochet activated, but there was no one else to redirect God's Smite to!"
             elif target_status.get('protected'):
@@ -1767,9 +1945,23 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 update_player_data(target_data['user_id'], {'status': target_status})
                 effect_message = f"🛡️ Blocked! {target_data.get('first_name')}'s Forcefield deflected God's Smite!"
             else:
-                coins_lost = target_data.get('coins', 0) // 2
-                update_player_data(target_data['user_id'], {'coins': target_data.get('coins', 0) - coins_lost})
-                effect_message = f"🛐 {user_name} used God's Smite on {target_data.get('first_name')}, destroying half their coins ({coins_lost} PC)!"
+                coins_lost = min(target_data.get('coins', 0) // 2, max(0, target_data.get('coins', 0) - 10))
+                target_coins = max(0, target_data.get('coins', 0) - coins_lost)
+                target_status['attack_grace_until'] = now + (15 * 60)
+                effect_message = f"🛐 {user_name} used God's Smite on {target_data.get('first_name')}, destroying {coins_lost} coins!"
+                if 'insurance' in target_data.get('cards', []) and coins_lost > 0:
+                    refund = int(coins_lost * 0.5)
+                    target_coins += refund
+                    effect_message += f"\n💼 {target_data.get('first_name')}'s Coin Insurance refunded {refund} PC back to their account!"
+                update_player_data(target_data['user_id'], {'coins': target_coins, 'status': target_status})
+
+            # Deduct repeat surcharge and record history
+            if surcharge > 0:
+                user_data['coins'] = max(0, user_data.get('coins', 0) - surcharge)
+                effect_message += f"\n⚠️ Repeat Attack Penalty: Charged an extra {surcharge} PC (+{30*repeat_count}%) for repeatedly targeting {target_data.get('first_name')}!"
+            repeat_attacks = user_status.get('repeat_attacks', {})
+            repeat_attacks[repeat_key] = {'count': repeat_count + 1, 'last_time': now}
+            user_status['repeat_attacks'] = repeat_attacks
 
         elif power == 'tribute':
             all_players = get_all_players()
