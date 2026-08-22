@@ -40,8 +40,8 @@ if hasattr(config, "ADMIN_USER_IDS"):
             ADMIN_USER_IDS.append(int(aid))
 
 ADMIN_USER_ID = ADMIN_USER_IDS[0]
-NO_COOLDOWN_USER_IDS = [7015866192]  # Mika (@cyberrghoull)
-INFLATION_EXEMPT_USER_IDS = [7015866192]  # Mika (@cyberrghoull)
+NO_COOLDOWN_USER_IDS = []
+INFLATION_EXEMPT_USER_IDS = []
 
 def is_user_exempt_from_inflation(user_id: int, player_status: dict = None) -> bool:
     """Checks if a user is immune or exempt from inflation price doubling."""
@@ -580,6 +580,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if user_is_admin:
         text += (
             "\n👑 *ADMIN MANAGEMENT COMMANDS:*\n"
+            "• /closestore — Close the store (blocks buying & using cards)\n"
+            "• /openstore — Reopen the store for all players\n"
             "• /startevent <name> — Launch event (bogo, secretsanta, rushhour, truce, gambit, coinrush, freebiefrenzy)\n"
             "• /endevent [name] — Stop active events (or specific event)\n"
             "• /revertevent <name> — Revert event effects (/revertgambit, /revertsecretsanta)\n"
@@ -686,8 +688,11 @@ def build_store_menu(user_id, telegram_user=None):
 
     freebie_frenzy_active = game_state.get('freebie_frenzy_until', 0) > time.time()
     bogo_active = game_state.get('bogo_active_until', 0) > time.time()
+    store_closed = game_state.get('store_closed', False)
 
     text = "🛒 *Welcome to the Power Store\\!* \nSelect a card to view its details:"
+    if store_closed:
+        text += "\n\n🔒 *STORE STATUS: CLOSED BY ADMIN*"
     if freebie_frenzy_active:
         text += "\n\n🎁 *FREEBIE FRENZY Active\\! Tier 1 cards are FREE\\!*"
     if bogo_active:
@@ -728,12 +733,27 @@ async def store_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not update.effective_user:
         return
 
-    player_data = ensure_player_registered(update.effective_user.id, update.effective_user)
+    user = update.effective_user
+    if context.args and is_admin(user.id):
+        subcmd = context.args[0].lower()
+        if subcmd in ["close", "lock"]:
+            await closestore_command(update, context)
+            return
+        elif subcmd in ["open", "unlock"]:
+            await openstore_command(update, context)
+            return
+
+    game_state = get_game_state()
+    if game_state.get('store_closed', False) and not is_admin(user.id):
+        await safe_reply(update, "🔒 The Power Store is currently CLOSED by the Admin. You cannot view or buy cards at this time.")
+        return
+
+    player_data = ensure_player_registered(user.id, user)
     if is_player_eliminated(player_data):
         await safe_reply(update, "💀 You have been eliminated from the game and cannot access the store.")
         return
 
-    text, reply_markup = build_store_menu(update.effective_user.id, update.effective_user)
+    text, reply_markup = build_store_menu(user.id, user)
     if reply_markup:
         await send_safe_message(msg or chat, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
     else:
@@ -747,12 +767,16 @@ async def handle_inspect_callback(update: Update, context: ContextTypes.DEFAULT_
     card = POWER_CARDS[card_id]
     user_id = query.from_user.id
 
+    game_state = get_game_state()
+    if game_state.get('store_closed', False) and not is_admin(user_id):
+        await query.edit_message_text("🔒 The Power Store is currently CLOSED by the Admin. You cannot view or buy cards at this time.")
+        return
+
     player_data = ensure_player_registered(user_id, query.from_user)
     if is_player_eliminated(player_data):
         await query.edit_message_text("💀 You have been eliminated from the game and cannot purchase items.")
         return
 
-    game_state = get_game_state()
     player_data = ensure_player_registered(user_id, query.from_user)
     player_status = player_data.get('status', {}) if player_data else {}
 
@@ -796,6 +820,10 @@ async def handle_back_to_store_callback(update: Update, context: ContextTypes.DE
     """Handles the 'Back to Store' button press."""
     query = update.callback_query
     await query.answer()
+    game_state = get_game_state()
+    if game_state.get('store_closed', False) and not is_admin(query.from_user.id):
+        await query.edit_message_text("🔒 The Power Store is currently CLOSED by the Admin.")
+        return
     text, reply_markup = build_store_menu(query.from_user.id, query.from_user)
     await send_safe_message(query, text, reply_markup=reply_markup, parse_mode='MarkdownV2')
 
@@ -809,6 +837,11 @@ async def handle_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if not db:
         await query.edit_message_text("Database not available.")
+        return
+
+    game_state = get_game_state()
+    if game_state.get('store_closed', False) and not is_admin(user_id):
+        await query.edit_message_text("🔒 The Power Store is currently CLOSED by the Admin. You cannot purchase cards at this time.")
         return
 
     player_data = ensure_player_registered(user_id, query.from_user)
@@ -924,6 +957,10 @@ async def use_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     now = time.time()
     status = player_data.get('status', {}) or {}
     game_state = get_game_state()
+
+    if game_state.get('store_closed', False) and not is_admin(user.id):
+        await safe_reply(update, "🔒 The Power Store is currently CLOSED by the Admin. Cards cannot be used right now.")
+        return
 
     disabled_cards = game_state.get('disabled_cards', [])
     if card_id in disabled_cards:
@@ -2374,6 +2411,40 @@ async def uneliminate_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     await safe_reply(update, f"✅ Player {player_name} (@{username}) has been restored to ACTIVE status.")
     await log_activity(context.bot, f"✅ Admin restored player {player_name} (@{username}).")
 
+async def closestore_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to close the Power Store (blocks card purchases and card usage)."""
+    user = update.effective_user
+    if not user or not is_admin(user.id):
+        await safe_reply(update, "You are not authorized to use this command.")
+        return
+
+    game_state = get_game_state()
+    if game_state.get('store_closed', False):
+        await safe_reply(update, "🔒 The Power Store is already closed.")
+        return
+
+    update_game_state({'store_closed': True})
+    await broadcast_event_message(context.bot, "🔒 *THE POWER STORE IS NOW CLOSED!* 🛑\n\nCard purchases and card usage are temporarily disabled by the Admin.", context)
+    await safe_reply(update, "🔒 Power Store has been CLOSED. Card purchases and card usage are now disabled for all players.")
+    await log_activity(context.bot, f"👑 Admin {user.first_name} closed the Power Store (purchases & card usage disabled).")
+
+async def openstore_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to reopen the Power Store."""
+    user = update.effective_user
+    if not user or not is_admin(user.id):
+        await safe_reply(update, "You are not authorized to use this command.")
+        return
+
+    game_state = get_game_state()
+    if not game_state.get('store_closed', False):
+        await safe_reply(update, "🔓 The Power Store is already open.")
+        return
+
+    update_game_state({'store_closed': False})
+    await broadcast_event_message(context.bot, "🔓 *THE POWER STORE IS NOW OPEN!* 🎉\n\nPlayers can now browse, purchase, and use cards!", context)
+    await safe_reply(update, "🔓 Power Store has been RE-OPENED. Players can now purchase and use cards.")
+    await log_activity(context.bot, f"👑 Admin {user.first_name} opened the Power Store.")
+
 
 # --- EVENT SYSTEM ---
 
@@ -2697,6 +2768,12 @@ application.add_handler(CommandHandler("enablecard", enablecard_command))
 application.add_handler(CommandHandler("disabledcards", disabledcards_command))
 application.add_handler(CommandHandler("eliminate", eliminate_command))
 application.add_handler(CommandHandler("uneliminate", uneliminate_command))
+application.add_handler(CommandHandler("closestore", closestore_command))
+application.add_handler(CommandHandler("close_store", closestore_command))
+application.add_handler(CommandHandler("lockstore", closestore_command))
+application.add_handler(CommandHandler("openstore", openstore_command))
+application.add_handler(CommandHandler("open_store", openstore_command))
+application.add_handler(CommandHandler("unlockstore", openstore_command))
 application.add_handler(CallbackQueryHandler(handle_inspect_callback, pattern="^inspect_"))
 application.add_handler(CallbackQueryHandler(handle_back_to_store_callback, pattern="^back_to_store$"))
 application.add_handler(CallbackQueryHandler(handle_buy_callback, pattern="^buy_"))

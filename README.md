@@ -101,6 +101,8 @@ Admins specified in `config.py` (`ADMIN_USER_IDS`) have full access to managemen
 
 | Command | Usage | Description |
 | :--- | :--- | :--- |
+| `/closestore` | `/closestore` | Closes the Power Store (blocks all card purchases and card usage). |
+| `/openstore` | `/openstore` | Reopens the Power Store for all players. |
 | `/startevent` | `/startevent <event_name>` | Launches one of the 7 admin events. |
 | `/endevent` | `/endevent` | Clears all active events globally. |
 | `/revertevent` | `/revertevent <event_name>` | Reverts effects of an event (takes back Gambit cards, returns Secret Santa gifts, or cancels active timers). |
