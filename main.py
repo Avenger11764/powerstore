@@ -594,7 +594,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "• /award <amount> <@user> — Award or deduct coins\n"
             "• /awardall <amount> — Award or deduct coins across all players\n"
             "• /givecard <CardName> <@user> — Gift a card directly to a player\n"
-            "• /resetallcoins — Reset all players to 5 PC and clear hands\n"
+            "• /resetallcoins [amount] — Reset all players to 0 PC (or specified amount) and clear hands\n"
         )
 
     await safe_reply(update, text)
@@ -2042,7 +2042,7 @@ async def givecard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await safe_reply(update, "Usage: /givecard <CardName> @username")
 
 async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Admin command to reset all players' coins to 5 and clear their cards."""
+    """Admin command to reset all players' coins to 0 (or specified amount) and clear their cards."""
     if not is_admin(update.effective_user.id):
         await safe_reply(update, "You are not authorized to use this command.")
         return
@@ -2050,6 +2050,13 @@ async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TY
     if not db:
         await safe_reply(update, "Database not available.")
         return
+
+    reset_amount = 0
+    if context.args:
+        try:
+            reset_amount = int(context.args[0])
+        except ValueError:
+            pass
 
     try:
         all_players = get_all_players()
@@ -2059,11 +2066,11 @@ async def resetallcoins_command(update: Update, context: ContextTypes.DEFAULT_TY
 
         for p in all_players:
             if p.get('user_id'):
-                update_player_data(p['user_id'], {'coins': 5, 'cards': []})
+                update_player_data(p['user_id'], {'coins': reset_amount, 'cards': []})
 
-        reply_msg = f"✅ Successfully reset all {len(all_players)} players to 5 coins and 0 cards."
+        reply_msg = f"✅ Successfully reset all {len(all_players)} players to {reset_amount} coins and 0 cards."
         await safe_reply(update, reply_msg)
-        await log_activity(context.bot, f"👑 Admin reset all {len(all_players)} players to 5 coins and 0 cards.")
+        await log_activity(context.bot, f"👑 Admin reset all {len(all_players)} players to {reset_amount} coins and 0 cards.")
     except Exception as e:
         logger.error(f"Error in /resetallcoins command: {e}")
         await safe_reply(update, "An error occurred while resetting coins.")
