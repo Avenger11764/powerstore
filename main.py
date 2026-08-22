@@ -1284,7 +1284,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         # Apply 10 PC bankruptcy floor protection
         burned = min(15, max(0, target_data.get('coins', 0) - 10))
         target_coins = max(0, target_data.get('coins', 0) - burned)
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         update_player_data(target_id, {'coins': target_coins, 'status': target_status})
         effect_message = f"🔥 {user_name} used Flame on {target_name}, burning {burned} Power Coins!"
         if 'insurance' in target_cards and burned > 0:
@@ -1319,7 +1319,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         # Apply 10 PC bankruptcy floor protection
         stolen = min(25, max(0, target_data.get('coins', 0) - 10))
         target_coins = max(0, target_data.get('coins', 0) - stolen)
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         update_player_data(target_id, {'coins': target_coins, 'status': target_status})
         user_data['coins'] = user_data.get('coins', 0) + stolen
         effect_message = f"😈 {user_name} used a Devil card and stole {stolen} Power Coins from {target_name}!"
@@ -1355,7 +1355,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         cstr = ", ".join([POWER_CARDS[cid]['name'] for cid in target_cards if cid in POWER_CARDS]) if target_cards else "None"
         return {'private': f"🔮 You used Clairvoyance on {target_name}. Their true cards are: {cstr}.", 'public': f"🔮 {user_name} used a Clairvoyance card on another player."}
     elif card_id == 'spotlight':
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         update_player_data(target_id, {'status': target_status})
         if target_status.get('blackout_until', 0) > time.time():
             effect_message = f"🕶️ {user_name}'s Spotlight was blocked! {target_name} is under a Blackout."
@@ -1378,7 +1378,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         update_player_data(target_id, {'status': target_status})
         effect_message = f"⏳ {user_name} used Time Warp on {target_name}, ending their Karma or Shackle effect immediately!"
     elif card_id == 'glitch':
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         if not target_cards:
             update_player_data(target_id, {'status': target_status})
             effect_message = f"🌀 {user_name} tried to glitch {target_name}, but they had no cards to discard!"
@@ -1388,7 +1388,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
             update_player_data(target_id, {'cards': target_cards, 'status': target_status})
             effect_message = f"🌀 {user_name} glitched {target_name}'s hand, forcing them to discard a {POWER_CARDS[disc]['name']} card!"
     elif card_id == 'swap':
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         user_swaps = [c for c in user_cards if c != 'swap']
         if not user_swaps or not target_cards:
             update_player_data(target_id, {'status': target_status})
@@ -1403,7 +1403,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
             update_player_data(target_id, {'cards': target_cards, 'status': target_status})
             effect_message = f"🔄 {user_name} used a Swap card on {target_name}! A random card was exchanged between them."
     elif card_id == 'steal':
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         stealable = [c for c in target_cards if c not in user_cards]
         if not stealable:
             update_player_data(target_id, {'status': target_status})
@@ -1432,7 +1432,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         p_id = next((cid for cid, c in POWER_CARDS.items() if c['name'].lower() == p_name.lower()), None)
         if not p_id:
             raise Exception(f"The card '{p_name}' does not exist.")
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         if p_id in target_cards:
             target_cards.remove(p_id)
             update_player_data(target_id, {'cards': target_cards, 'status': target_status})
@@ -1441,7 +1441,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
             update_player_data(target_id, {'status': target_status})
             effect_message = f"🎯 {user_name} used Purge on {target_name}, but they did not have a {POWER_CARDS[p_id]['name']} card."
     elif card_id == 'amnesia':
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         update_player_data(target_id, {'cards': [], 'status': target_status})
         effect_message = f"❓ {user_name} used Amnesia on {target_name}, forcing them to discard their entire hand!"
     elif card_id == 'vortex':
@@ -1449,7 +1449,7 @@ def process_use_card(user_data, target_data, card_id, card_args=None):
         effect_message = f"🌪️ {user_name} unleashed a Vortex!"
     elif card_id == 'shackle':
         target_status['shackled_until'] = time.time() + (1 * 60 * 60)
-        target_status['attack_grace_until'] = time.time() + (15 * 60)
+        target_status['attack_grace_until'] = time.time() + (30 * 60)
         update_player_data(target_id, {'status': target_status})
         effect_message = f"⛓️ {user_name} shackled {target_name}! They cannot use cards for 1 hour."
     elif card_id == 'frenzy':
@@ -1765,7 +1765,7 @@ async def handle_double_or_nothing_challenge(update: Update, context: ContextTyp
     winner_data = attacker_data if winner.id == attacker.id else target_data
     loser_data = target_data if winner.id == attacker.id else attacker_data
 
-    target_status['attack_grace_until'] = now + (15 * 60)
+    target_status['attack_grace_until'] = now + (30 * 60)
     update_player_data(winner.id, {'coins': winner_data.get('coins', 0) + wager})
     
     loser_coins = max(0, loser_data.get('coins', 0) - wager)
@@ -1931,7 +1931,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     coins_lost = min(new_target.get('coins', 0) // 2, max(0, new_target.get('coins', 0) - 10))
                     new_target_coins = max(0, new_target.get('coins', 0) - coins_lost)
                     n_status = new_target.get('status', {}) or {}
-                    n_status['attack_grace_until'] = now + (15 * 60)
+                    n_status['attack_grace_until'] = now + (30 * 60)
                     effect_message = f"↪️ {target_data.get('first_name')}'s Ricochet redirected God's Smite onto {new_target.get('first_name')}, destroying {coins_lost} coins!"
                     if 'insurance' in new_target.get('cards', []) and coins_lost > 0:
                         refund = int(coins_lost * 0.5)
@@ -1947,7 +1947,7 @@ async def execute_god_power(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             else:
                 coins_lost = min(target_data.get('coins', 0) // 2, max(0, target_data.get('coins', 0) - 10))
                 target_coins = max(0, target_data.get('coins', 0) - coins_lost)
-                target_status['attack_grace_until'] = now + (15 * 60)
+                target_status['attack_grace_until'] = now + (30 * 60)
                 effect_message = f"🛐 {user_name} used God's Smite on {target_data.get('first_name')}, destroying {coins_lost} coins!"
                 if 'insurance' in target_data.get('cards', []) and coins_lost > 0:
                     refund = int(coins_lost * 0.5)

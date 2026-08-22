@@ -69,7 +69,7 @@ The **God Card** holds ultimate authority:
 ### 🛡️ Anti-Targeting & Player Protection Suite
 
 To prevent unfair dogpiling and continuous targeting of single players:
-1. **🛡️ 15-Minute Attack Grace Period ("Victim Shield"):** Whenever a player is hit by an offensive card (`Flame`, `Devil`, `Glitch`, `Steal`, `Swap`, `Purge`, `Amnesia`, `Shackle`, `Double or Nothing`, `God Smite`), they gain a 15-minute recovery shield during which no other player can target them with negative cards.
+1. **🛡️ 30-Minute Attack Grace Period ("Victim Shield"):** Whenever a player is hit by an offensive card (`Flame`, `Devil`, `Glitch`, `Steal`, `Swap`, `Purge`, `Amnesia`, `Shackle`, `Double or Nothing`, `God Smite`), they gain a 30-minute recovery shield during which no other player can target them with negative cards.
 2. **💰 Bankruptcy Floor (10 PC Protection):** Players with 10 PC or less cannot be targeted by coin-draining attacks (`Flame`, `Devil`, `God Smite`).
 3. **📈 30% Escalating Repeat Attack Penalty:** If an attacker repeatedly uses the same card against the same player, they must pay an escalating surcharge (+30% of card price per repeat) to balance gameplay.
 4. **💼 Coin Insurance (Tier 1 Passive):** When held in inventory, automatically refunds 50% of any coins stolen or burned by attacks.
